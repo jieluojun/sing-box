@@ -7,8 +7,8 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: '版本号 (不含 v 前缀, 例如 1.15.0-alpha.13-xiaobaf14g.1)'
-        required: true
+        description: '版本号（可留空自动生成；不含 v 前缀）'
+        required: false
         type: string
       prerelease:
         description: '标记为 prerelease'
@@ -29,14 +29,9 @@ on:
 permissions:
   contents: write
 
-# 同一 tag 重 push / 多次 workflow_dispatch 时，自动取消前一次仍在跑的运行。
-# 避免两次构建把 Release assets 互相覆盖，也省 Actions 用量。
-#
-# 注意不用 github.ref 本身，因为 tag 被删后重建 ref_name 相同，但我们要
-# 把 delete-then-recreate 视为独立 run（不互相取消）。所以加 run_id 维度
-# 的唯一性：push event 的 ref_name，workflow_dispatch 的 inputs.version。
+# 同一个手动指定的版本或 tag 只保留最新运行；自动生成的版本每次独立。
 concurrency:
-  group: xiaobaf14g-release-${{ github.event_name == 'push' && github.ref_name || inputs.version }}
+  group: xiaobaf14g-release-${{ github.event_name == 'push' && github.ref_name || inputs.version || github.run_id }}
   cancel-in-progress: true
 
 env:
@@ -80,6 +75,11 @@ jobs:
       skip_gui:     ${{ steps.meta.outputs.skip_gui }}
       gomod_key:    ${{ steps.gomod_key.outputs.key }}
     steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
       - name: Parse trigger
         id: meta
         env:
@@ -89,40 +89,9 @@ jobs:
           INPUT_SKIP:     ${{ inputs.skip_android }}
           INPUT_SKIP_GUI: ${{ inputs.skip_gui }}
           REF_NAME:       ${{ github.ref_name }}
-        run: |
-          set -euo pipefail
-          if [[ "$EVENT" == "workflow_dispatch" ]]; then
-            VERSION="${INPUT_VERSION#v}"
-            TAG="v${VERSION}"
-            PRE="$INPUT_PRE"
-            SKIP_ANDROID="$INPUT_SKIP"
-            SKIP_GUI="$INPUT_SKIP_GUI"
-          else
-            TAG="$REF_NAME"
-            VERSION="${TAG#v}"
-            # 版本号本身带 -xiaobaf14g.N 后缀，不能按 "含 -" 判断；
-            # 只有 alpha / beta / rc 才是 prerelease。
-            if [[ "$VERSION" =~ -(alpha|beta|rc) ]]; then
-              PRE=true
-            else
-              PRE=false
-            fi
-            SKIP_ANDROID=false
-            # 图形客户端默认不随 tag 构建；需要时手动运行本工作流并取消 skip_gui。
-            SKIP_GUI=true
-          fi
-          {
-            echo "version=$VERSION"
-            echo "tag=$TAG"
-            echo "prerelease=$PRE"
-            echo "skip_android=$SKIP_ANDROID"
-            echo "skip_gui=$SKIP_GUI"
-          } | tee -a "$GITHUB_OUTPUT"
-
-      - name: Checkout
-        uses: actions/checkout@v5
-        with:
-          fetch-depth: 1
+          RUN_ID:         ${{ github.run_id }}
+          RUN_ATTEMPT:    ${{ github.run_attempt }}
+        run: bash .github/release_metadata.sh
 
       - name: Compute module cache key
         id: gomod_key
@@ -1336,6 +1305,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name:   ${{ needs.prepare.outputs.tag }}
+          target_commitish: ${{ github.sha }}
           name:       sing-box xiaobaf14g ${{ needs.prepare.outputs.tag }}
           prerelease: ${{ needs.prepare.outputs.prerelease == 'true' }}
           draft:      false

@@ -11,6 +11,7 @@ const (
 	TypePass               = "pass"
 	TypeDNS                = "dns"
 	TypeSOCKS              = "socks"
+	TypeCNS                = "cns"
 	TypeHTTP               = "http"
 	TypeMixed              = "mixed"
 	TypeShadowsocks        = "shadowsocks"
@@ -87,6 +88,8 @@ func ProxyDisplayName(proxyType string) string {
 		return "DNS"
 	case TypeSOCKS:
 		return "SOCKS"
+	case TypeCNS:
+		return "CNS"
 	case TypeHTTP:
 		return "HTTP"
 	case TypeMixed:
