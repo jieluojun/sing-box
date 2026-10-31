@@ -3,11 +3,13 @@ package parser
 import (
 	"context"
 	"reflect"
+	"strings"
 
 	C "github.com/sagernet/sing-box/constant"
 	"github.com/sagernet/sing-box/option"
 	"github.com/sagernet/sing/common"
 	E "github.com/sagernet/sing/common/exceptions"
+	"github.com/sagernet/sing/common/json/badoption"
 )
 
 var subscriptionParsers = []func(ctx context.Context, content string) ([]option.Outbound, []option.Endpoint, error){
@@ -51,6 +53,28 @@ func overrideOutbounds(outbounds []option.Outbound, overrideDialerOptions *optio
 			options := outbound.Options.(*option.HTTPOutboundOptions)
 			options.DialerOptions = overrideDialerOption(options.DialerOptions, overrideDialerOptions, tags, providerTag)
 			options.OutboundTLSOptionsContainer.TLS = overrideTLSOption(options.OutboundTLSOptionsContainer.TLS, overrideTLSOptions)
+			if overrideTransportOptions != nil {
+				if overrideTransportOptions.Host != nil {
+					options.Headers = overrideHostHeader(options.Headers, *overrideTransportOptions.Host)
+				}
+				if overrideTransportOptions.Path != nil {
+					options.Path = *overrideTransportOptions.Path
+				}
+				withAt := overrideTransportOptions.WithAt
+				if withAt == nil {
+					withAt = overrideTransportOptions.WithAtHeader
+				}
+				if withAt != nil {
+					options.Headers = overrideWithAtHeader(options.Headers, *withAt)
+				}
+			}
+			outbound.Options = options
+		case C.TypeCNS:
+			options := outbound.Options.(*option.CNSOutboundOptions)
+			options.DialerOptions = overrideDialerOption(options.DialerOptions, overrideDialerOptions, tags, providerTag)
+			if overrideTransportOptions != nil && overrideTransportOptions.Host != nil {
+				options.Headers = overrideHostHeader(options.Headers, *overrideTransportOptions.Host)
+			}
 			outbound.Options = options
 		case C.TypeSOCKS:
 			options := outbound.Options.(*option.SOCKSOutboundOptions)
@@ -326,8 +350,64 @@ func overrideTLSOption(options *option.OutboundTLSOptions, overrideTLSOptions *o
 	return options
 }
 
+// Remove all case variants so a stale header cannot override the chosen host.
+func removeHostHeader(headers badoption.HTTPHeader) badoption.HTTPHeader {
+	for key := range headers {
+		if strings.EqualFold(key, "Host") {
+			delete(headers, key)
+		}
+	}
+	return headers
+}
+
+func overrideHostHeader(headers badoption.HTTPHeader, host string) badoption.HTTPHeader {
+	if headers == nil {
+		headers = make(badoption.HTTPHeader)
+	}
+	removeHostHeader(headers)
+	headers["Host"] = badoption.Listable[string]{host}
+	return headers
+}
+
+// With-At is a CONNECT target option, not a header sent to the server.
+func overrideWithAtHeader(headers badoption.HTTPHeader, value string) badoption.HTTPHeader {
+	for key := range headers {
+		if strings.EqualFold(key, "With-At") {
+			delete(headers, key)
+		}
+	}
+	if value != "" {
+		if headers == nil {
+			headers = make(badoption.HTTPHeader)
+		}
+		headers["With-At"] = badoption.Listable[string]{value}
+	}
+	return headers
+}
+
 func overrideTransportOption(options *option.V2RayTransportOptions, overrideTLSOptions *option.OverrideTLSOptions, overrideTransportOptions *option.OverrideTransportOptions) *option.V2RayTransportOptions {
-	if options == nil || options.Type != C.V2RayTransportTypeXHTTP {
+	if options == nil {
+		return nil
+	}
+	if overrideTransportOptions != nil && overrideTransportOptions.Host != nil {
+		host := *overrideTransportOptions.Host
+		switch options.Type {
+		case C.V2RayTransportTypeWebsocket:
+			options.WebsocketOptions.Headers = overrideHostHeader(options.WebsocketOptions.Headers, host)
+		case C.V2RayTransportTypeHTTP:
+			options.HTTPOptions.Host = badoption.Listable[string]{host}
+			options.HTTPOptions.Headers = removeHostHeader(options.HTTPOptions.Headers)
+		case C.V2RayTransportTypeHTTPUpgrade:
+			options.HTTPUpgradeOptions.Host = host
+			options.HTTPUpgradeOptions.Headers = removeHostHeader(options.HTTPUpgradeOptions.Headers)
+		case C.V2RayTransportTypeXHTTP:
+			if xhttpOptions, ok := options.Extra.(*option.V2RayXHTTPOptions); ok && xhttpOptions != nil {
+				xhttpOptions.Host = badoption.Listable[string]{host}
+				xhttpOptions.Headers = removeHostHeader(xhttpOptions.Headers)
+			}
+		}
+	}
+	if options.Type != C.V2RayTransportTypeXHTTP {
 		return options
 	}
 	xhttpOptions, ok := options.Extra.(*option.V2RayXHTTPOptions)
