@@ -60,12 +60,8 @@ func overrideOutbounds(outbounds []option.Outbound, overrideDialerOptions *optio
 				if overrideTransportOptions.Path != nil {
 					options.Path = *overrideTransportOptions.Path
 				}
-				withAt := overrideTransportOptions.WithAt
-				if withAt == nil {
-					withAt = overrideTransportOptions.WithAtHeader
-				}
-				if withAt != nil {
-					options.Headers = overrideWithAtHeader(options.Headers, *withAt)
+				if overrideTransportOptions.WithAt != nil {
+					options.Headers = overrideWithAtHeader(options.Headers, *overrideTransportOptions.WithAt)
 				}
 			}
 			outbound.Options = options

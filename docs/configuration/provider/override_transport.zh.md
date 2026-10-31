@@ -28,9 +28,9 @@
 
 #### with_at
 
-覆写本地或远程订阅中 HTTP 出站的 `With-At` 特殊请求头。值无需包含 `@`，例如 `"gw.alicdn.com"` 会在 HTTP/1 CONNECT 目标后追加 `@gw.alicdn.com`；`With-At` 本身不会作为请求头发送。其他请求头和 `del_host` 不变。
+覆写本地或远程订阅中 HTTP 出站的 `With-At` 特殊请求头。值无需包含 `@`，例如 `"gw.alicdn.com"` 会在 HTTP/1 CONNECT 目标后追加 `@gw.alicdn.com`；`With-At` 本身不会作为请求头发送。其他请求头和 `del_host` 不变。保存订阅节点 JSON 时，`With-At` 会排在 `headers` 中的其他字段之前；JSON 字段顺序不会影响实际请求。
 
-也可在 `override_transport` 中使用 `"With-At"` 作为 `"with_at"` 的别名；同时设置时，以 `with_at` 为准（包括空字符串）。不设置时保留原值；空字符串清除 `With-At`。节点的 `path` 非空时优先使用 `path`；`path` 为空且 `Baidu-Direct` 为 `true` 时优先使用 `Baidu-Direct`。如需让 `with_at` 生效，请确保不存在这些冲突。非空值要求 HTTP/1，显式配置 HTTP/2 或 HTTP/3 的节点不兼容；不能包含空格或控制字符。
+不设置时保留原值；空字符串清除 `With-At`。节点的 `path` 非空时优先使用 `path`；`path` 为空且 `Baidu-Direct` 为 `true` 时优先使用 `Baidu-Direct`。如需让 `with_at` 生效，请确保不存在这些冲突。非空值要求 HTTP/1，显式配置 HTTP/2 或 HTTP/3 的节点不兼容；不能包含空格或控制字符。
 
 以下 XHTTP 下行字段作用于已配置 `download_settings` 的节点。
 
