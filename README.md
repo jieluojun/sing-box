@@ -633,6 +633,8 @@ wazero 仅在 amd64 与 arm64 架构上以编译方式执行，其他架构使�
 
 推送 `v*` 标签或手动触发 `xiaobaf14g-release.yml` 工作流后，将构建全部产物并发布至 [Releases](https://github.com/MiChongs/sing-box/releases)。版本号格式为 `<上游版本>-xiaobaf14g.<序号>`（例如 `1.15.0-alpha.13-xiaobaf14g.1`），包含 `-alpha`、`-beta` 或 `-rc` 的版本标记为预发布版本。
 
+手动运行工作流时，版本号可留空：系统会基于当前提交可到达的最近版本标签，加上 `-auto.<运行 ID>.<重试次数>` 自动生成；没有版本标签时使用 `0.0.0` 作为基底。自动生成的标签仍会创建 GitHub Release，是否标记为预发布由工作流选项决定。
+
 命令行程序的文件名格式为 `sing-box-<版本>-<系统>-<架构>[<后缀>].tar.gz`。
 
 | 系统 | 架构 |
