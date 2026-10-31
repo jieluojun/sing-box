@@ -259,6 +259,8 @@ type OverrideRealityOptions struct {
 
 type OverrideTransportOptions struct {
 	Host                 *string `json:"host,omitempty"`
+	Path                 *string `json:"path,omitempty"`
+	WithAt               *string `json:"with_at,omitempty"`
 	XHTTPDownloadEnabled *bool   `json:"xhttp_download_enabled,omitempty"`
 	XHTTPDownloadDetour  *string `json:"xhttp_download_detour,omitempty" reference:"outbound"`
 }

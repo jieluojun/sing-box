@@ -172,3 +172,29 @@ func TestProviderCacheKeyTracksHostOverride(t *testing.T) {
 	require.NotEqual(t, plain, one)
 	require.NotEqual(t, one, two)
 }
+
+func TestProviderCacheKeyTracksPathOverride(t *testing.T) {
+	first := "@gw.alicdn.com"
+	second := "@example.com"
+	empty := ""
+	plain := processOptionsHash(nil, nil, nil, nil, nil, nil)
+	one := processOptionsHash(nil, nil, nil, nil, nil, &option.OverrideTransportOptions{Path: &first})
+	two := processOptionsHash(nil, nil, nil, nil, nil, &option.OverrideTransportOptions{Path: &second})
+	cleared := processOptionsHash(nil, nil, nil, nil, nil, &option.OverrideTransportOptions{Path: &empty})
+	require.NotEqual(t, plain, one)
+	require.NotEqual(t, one, two)
+	require.NotEqual(t, plain, cleared)
+}
+
+func TestProviderCacheKeyTracksWithAtOverride(t *testing.T) {
+	first := "gw.alicdn.com"
+	second := "example.com"
+	empty := ""
+	plain := processOptionsHash(nil, nil, nil, nil, nil, nil)
+	one := processOptionsHash(nil, nil, nil, nil, nil, &option.OverrideTransportOptions{WithAt: &first})
+	two := processOptionsHash(nil, nil, nil, nil, nil, &option.OverrideTransportOptions{WithAt: &second})
+	cleared := processOptionsHash(nil, nil, nil, nil, nil, &option.OverrideTransportOptions{WithAt: &empty})
+	require.NotEqual(t, plain, one)
+	require.NotEqual(t, one, two)
+	require.NotEqual(t, plain, cleared)
+}

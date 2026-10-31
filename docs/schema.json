@@ -20564,6 +20564,12 @@
         "host": {
           "type": "string"
         },
+        "path": {
+          "type": "string"
+        },
+        "with_at": {
+          "type": "string"
+        },
         "xhttp_download_enabled": {
           "type": "boolean"
         },

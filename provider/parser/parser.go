@@ -53,8 +53,16 @@ func overrideOutbounds(outbounds []option.Outbound, overrideDialerOptions *optio
 			options := outbound.Options.(*option.HTTPOutboundOptions)
 			options.DialerOptions = overrideDialerOption(options.DialerOptions, overrideDialerOptions, tags, providerTag)
 			options.OutboundTLSOptionsContainer.TLS = overrideTLSOption(options.OutboundTLSOptionsContainer.TLS, overrideTLSOptions)
-			if overrideTransportOptions != nil && overrideTransportOptions.Host != nil {
-				options.Headers = overrideHostHeader(options.Headers, *overrideTransportOptions.Host)
+			if overrideTransportOptions != nil {
+				if overrideTransportOptions.Host != nil {
+					options.Headers = overrideHostHeader(options.Headers, *overrideTransportOptions.Host)
+				}
+				if overrideTransportOptions.Path != nil {
+					options.Path = *overrideTransportOptions.Path
+				}
+				if overrideTransportOptions.WithAt != nil {
+					options.Headers = overrideWithAtHeader(options.Headers, *overrideTransportOptions.WithAt)
+				}
 			}
 			outbound.Options = options
 		case C.TypeCNS:
@@ -354,6 +362,22 @@ func overrideHostHeader(headers badoption.HTTPHeader, host string) badoption.HTT
 	}
 	removeHostHeader(headers)
 	headers["Host"] = badoption.Listable[string]{host}
+	return headers
+}
+
+// With-At is a CONNECT target option, not a header sent to the server.
+func overrideWithAtHeader(headers badoption.HTTPHeader, value string) badoption.HTTPHeader {
+	for key := range headers {
+		if strings.EqualFold(key, "With-At") {
+			delete(headers, key)
+		}
+	}
+	if value != "" {
+		if headers == nil {
+			headers = make(badoption.HTTPHeader)
+		}
+		headers["With-At"] = badoption.Listable[string]{value}
+	}
 	return headers
 }
 

@@ -17,7 +17,10 @@ func TestConnectTargetOptions(t *testing.T) {
 	}{
 		{"with-at", ClientOptions{Headers: http.Header{"With-At": {"free.example"}}}, "CONNECT example.com:443@free.example HTTP/1.1", "example.com:443", true},
 		{"baidu", ClientOptions{Headers: http.Header{"Baidu-Direct": {"true"}}}, "CONNECT example.com:443HTTP/1.1", "example.com:443", true},
+		{"baidu-over-with-at", ClientOptions{Headers: http.Header{"Baidu-Direct": {"true"}, "With-At": {"gw.alicdn.com"}}}, "CONNECT example.com:443HTTP/1.1", "example.com:443", true},
+		{"with-at-host", ClientOptions{Headers: http.Header{"With-At": {"gw.alicdn.com"}, "Host": {"153.3.236.22:443"}, "X-T5-Auth": {"683556433"}}}, "CONNECT example.com:443@gw.alicdn.com HTTP/1.1", "153.3.236.22:443", true},
 		{"path-wins", ClientOptions{Path: "@path", Headers: http.Header{"With-At": {"free.example"}, "Host": {"custom.example"}}}, "CONNECT example.com:443@path HTTP/1.1", "custom.example", true},
+		{"path-del-host", ClientOptions{Path: "@new.example", DelHost: true}, "CONNECT example.com:443@new.example HTTP/1.1", "", false},
 		{"del-host", ClientOptions{DelHost: true}, "CONNECT example.com:443 HTTP/1.1", "", false},
 		{"custom-host", ClientOptions{DelHost: true, Headers: http.Header{"Host": {"custom.example"}}}, "CONNECT example.com:443 HTTP/1.1", "custom.example", true},
 	}
