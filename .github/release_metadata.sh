@@ -18,7 +18,7 @@ if [[ "$EVENT" == "workflow_dispatch" ]]; then
     fi
     VERSION="${base}-auto.${RUN_ID}.${RUN_ATTEMPT}"
   fi
-  # This value is also used in file names, git tags and release API calls.
+  # Validate the release tag before deriving the display and artifact version.
   if [[ ! "$VERSION" =~ ^[0-9A-Za-z][0-9A-Za-z._+-]*$ ]]; then
     echo '::error::Invalid version: use letters, digits, dots, hyphens, underscores or +.' >&2
     exit 1
@@ -38,6 +38,14 @@ else
   fi
   SKIP_ANDROID=false
   SKIP_GUI=true
+fi
+# Release tags must remain unique, but binary versions and artifact names
+# should contain only the upstream version, without fork/build identifiers.
+VERSION="${VERSION%%-xiaobaf14g.*}"
+VERSION="${VERSION%%-auto.*}"
+if [[ -z "$VERSION" ]]; then
+  echo '::error::Release version is empty after removing build suffix.' >&2
+  exit 1
 fi
 {
   echo "version=$VERSION"

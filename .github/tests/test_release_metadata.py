@@ -34,6 +34,7 @@ class ReleaseMetadataTest(unittest.TestCase):
         result, values = self.run_meta()
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(values["tag"], "v1.15.0-alpha.13-xiaobaf14g.8-auto.123.1")
+        self.assertEqual(values["version"], "1.15.0-alpha.13")
         self.assertEqual(values["prerelease"], "true")
         _, retry = self.run_meta(RUN_ATTEMPT="2")
         self.assertNotEqual(values["tag"], retry["tag"])
@@ -41,7 +42,7 @@ class ReleaseMetadataTest(unittest.TestCase):
     def test_previous_auto_release_is_not_used_as_base(self):
         self.git("tag", "v0.0.0-auto.42.1")
         _, values = self.run_meta()
-        self.assertEqual(values["version"], "1.15.0-alpha.13-xiaobaf14g.8-auto.123.1")
+        self.assertEqual(values["version"], "1.15.0-alpha.13")
 
     def test_invalid_base_fails(self):
         (self.repo / "release" / "BASE_VERSION").write_text("0.0.0\n")
@@ -52,10 +53,21 @@ class ReleaseMetadataTest(unittest.TestCase):
         self.git("tag", "v1.15.0-alpha.13-xiaobaf14g.1")
         result, values = self.run_meta()
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(values["version"], "1.15.0-alpha.13-xiaobaf14g.1-auto.123.1")
+        self.assertEqual(values["version"], "1.15.0-alpha.13")
         _, values = self.run_meta(INPUT_VERSION="v2.3.4", INPUT_PRE="false")
         self.assertEqual(values["tag"], "v2.3.4")
         self.assertEqual(values["prerelease"], "false")
+
+    def test_fork_and_auto_suffix_are_removed_from_binary_version(self):
+        result, values = self.run_meta(INPUT_VERSION="1.15.0-alpha.13-xiaobaf14g.8-auto.456.1")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(values["tag"], "v1.15.0-alpha.13-xiaobaf14g.8-auto.456.1")
+        self.assertEqual(values["version"], "1.15.0-alpha.13")
+        _, values = self.run_meta(EVENT="push", REF_NAME="v1.15.0-alpha.13-xiaobaf14g.8")
+        self.assertEqual(values["tag"], "v1.15.0-alpha.13-xiaobaf14g.8")
+        self.assertEqual(values["version"], "1.15.0-alpha.13")
+        _, values = self.run_meta(INPUT_VERSION="1.0.0.0-alpha.1")
+        self.assertEqual(values["version"], "1.0.0.0-alpha.1")
 
     def test_invalid_manual_version_is_rejected(self):
         result, _ = self.run_meta(INPUT_VERSION="bad/name")
