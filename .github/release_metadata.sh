@@ -6,11 +6,15 @@ if [[ "$EVENT" == "workflow_dispatch" ]]; then
   if [[ -z "$VERSION" ]]; then
     # Use a tag reachable from the selected ref, if available. Include the
     # run ID and attempt so an automatic release never replaces another run.
-    base=$(git describe --tags --abbrev=0 --match 'v[0-9]*' HEAD 2>/dev/null || true)
+    base=$(git describe --tags --abbrev=0 --match 'v[0-9]*' --exclude '*-auto.*' --exclude 'v0.0.0*' HEAD 2>/dev/null || true)
     base="${base#v}"
     base="${base%%+*}"
     if [[ ! "$base" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
-      base='0.0.0'
+      base=$(tr -d '\r\n' < release/BASE_VERSION)
+      if [[ ! "$base" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ || "$base" == 0.0.0* ]]; then
+        echo '::error::Invalid release/BASE_VERSION; set the source release version before building.' >&2
+        exit 1
+      fi
     fi
     VERSION="${base}-auto.${RUN_ID}.${RUN_ATTEMPT}"
   fi

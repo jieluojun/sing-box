@@ -12,6 +12,8 @@ class ReleaseMetadataTest(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
         self.repo = Path(self.tmp.name)
+        (self.repo / "release").mkdir()
+        (self.repo / "release" / "BASE_VERSION").write_text("1.15.0-alpha.13-xiaobaf14g.8\n")
         self.git("init", "-q")
         self.git("-c", "user.name=Test", "-c", "user.email=test@example.com",
                  "commit", "--allow-empty", "-qm", "initial")
@@ -31,10 +33,20 @@ class ReleaseMetadataTest(unittest.TestCase):
     def test_no_tag_uses_unique_fallback(self):
         result, values = self.run_meta()
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(values["tag"], "v0.0.0-auto.123.1")
+        self.assertEqual(values["tag"], "v1.15.0-alpha.13-xiaobaf14g.8-auto.123.1")
         self.assertEqual(values["prerelease"], "true")
         _, retry = self.run_meta(RUN_ATTEMPT="2")
         self.assertNotEqual(values["tag"], retry["tag"])
+
+    def test_previous_auto_release_is_not_used_as_base(self):
+        self.git("tag", "v0.0.0-auto.42.1")
+        _, values = self.run_meta()
+        self.assertEqual(values["version"], "1.15.0-alpha.13-xiaobaf14g.8-auto.123.1")
+
+    def test_invalid_base_fails(self):
+        (self.repo / "release" / "BASE_VERSION").write_text("0.0.0\n")
+        result, _ = self.run_meta()
+        self.assertNotEqual(result.returncode, 0)
 
     def test_reachable_tag_and_manual_version(self):
         self.git("tag", "v1.15.0-alpha.13-xiaobaf14g.1")
