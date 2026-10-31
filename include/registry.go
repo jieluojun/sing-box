@@ -24,6 +24,7 @@ import (
 	"github.com/sagernet/sing-box/protocol/anyx"
 	"github.com/sagernet/sing-box/protocol/block"
 	"github.com/sagernet/sing-box/protocol/bridge"
+	"github.com/sagernet/sing-box/protocol/cns"
 	"github.com/sagernet/sing-box/protocol/direct"
 	"github.com/sagernet/sing-box/protocol/group"
 	"github.com/sagernet/sing-box/protocol/http"
@@ -66,10 +67,12 @@ func InboundRegistry() *inbound.Registry {
 	direct.RegisterInbound(registry)
 
 	socks.RegisterInbound(registry)
+	cns.RegisterInbound(registry)
 	http.RegisterInbound(registry)
 	mixed.RegisterInbound(registry)
 
 	shadowsocks.RegisterInbound(registry)
+	cns.RegisterInbound(registry)
 	snell.RegisterInbound(registry)
 	vmess.RegisterInbound(registry)
 	trojan.RegisterInbound(registry)
@@ -117,8 +120,10 @@ func OutboundRegistry() *outbound.Registry {
 	group.RegisterNested(registry)
 
 	socks.RegisterOutbound(registry)
+	cns.RegisterOutbound(registry)
 	http.RegisterOutbound(registry)
 	shadowsocks.RegisterOutbound(registry)
+	cns.RegisterOutbound(registry)
 	snell.RegisterOutbound(registry)
 	vmess.RegisterOutbound(registry)
 	trojan.RegisterOutbound(registry)

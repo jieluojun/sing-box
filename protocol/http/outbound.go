@@ -40,12 +40,18 @@ func NewOutbound(ctx context.Context, router adapter.Router, logger log.ContextL
 		return nil, err
 	}
 	headers := options.Headers.Build()
+	version := http.ResolveVersion(options.Version, options.Path, headers.Get("Host"))
+	if options.Version == 0 && (options.DelHost || headers.Get("With-At") != "" || headers.Get("Baidu-Direct") == "true") {
+		version = 1
+	}
 	client, err := http.NewClientWithTLS(ctx, logger, outboundDialer, options.ServerOptions, common.PtrValueOrDefault(options.TLS), http.ClientOptions{
 		Username:               options.Username,
 		Password:               options.Password,
 		Path:                   options.Path,
+		ConnectTargetOptions:   true,
+		DelHost:                options.DelHost,
 		Headers:                headers,
-		Version:                http.ResolveVersion(options.Version, options.Path, headers.Get("Host")),
+		Version:                version,
 		DisableVersionFallback: options.DisableVersionFallback,
 		HTTP2Options:           options.HTTP2Options,
 		HTTP3Options:           options.HTTP3Options,

@@ -5,12 +5,15 @@ import (
 	"context"
 	"encoding/base64"
 	"errors"
+	"fmt"
+	"io"
 	"maps"
 	"net"
 	"net/http"
 	"net/url"
 	"os"
 	"slices"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -46,6 +49,8 @@ type ClientOptions struct {
 	Username               string
 	Password               string
 	Path                   string
+	ConnectTargetOptions   bool
+	DelHost                bool
 	Headers                http.Header
 	Version                int
 	DisableVersionFallback bool
@@ -71,6 +76,10 @@ type Client struct {
 	authorization                   string
 	host                            string
 	path                            string
+	connectTargetOptions            bool
+	delHost                         bool
+	withAt                          string
+	baiduDirect                     bool
 	headers                         http.Header
 	version                         int
 	disableVersionFallback          bool
@@ -130,16 +139,33 @@ func NewClient(options ClientOptions) (*Client, error) {
 		server:                 options.Server,
 		authorityOverride:      options.Authority,
 		path:                   options.Path,
+		connectTargetOptions:   options.ConnectTargetOptions,
+		delHost:                options.DelHost,
 		headers:                options.Headers.Clone(),
 		version:                options.Version,
 		disableVersionFallback: options.DisableVersionFallback,
+	}
+	if client.connectTargetOptions && client.headers != nil {
+		client.withAt = client.headers.Get("With-At")
+		client.baiduDirect = client.headers.Get("Baidu-Direct") == "true"
+		client.headers.Del("With-At")
+		client.headers.Del("Baidu-Direct")
+	}
+	if client.connectTargetOptions && strings.IndexFunc(client.path+client.withAt, func(r rune) bool { return r <= 0x20 || r == 0x7f }) >= 0 {
+		return nil, E.New("invalid CONNECT target suffix")
 	}
 	if client.headers != nil {
 		client.host = client.headers.Get("Host")
 		client.headers.Del("Host")
 	}
-	if client.host != "" && client.path != "" {
+	if !client.connectTargetOptions && client.host != "" && client.path != "" {
 		return nil, E.New("Host header and path are not allowed at the same time")
+	}
+	if client.connectTargetOptions && (client.delHost || client.withAt != "" || client.baiduDirect) {
+		if client.version > 1 {
+			return nil, E.New("CONNECT target options require HTTP/1")
+		}
+		client.version = 1
 	}
 	client.version = ResolveVersion(client.version, client.path, client.host)
 	if client.version >= 2 && (client.path != "" || client.host != "") {
@@ -292,14 +318,19 @@ func (c *Client) connect(ctx context.Context, conn net.Conn, destination M.Socks
 	} else {
 		request.URL = &url.URL{Host: destination.String()}
 	}
-	if c.path != "" {
+	if c.path != "" && !c.connectTargetOptions {
 		err := badhttp.URLSetPath(request.URL, c.path)
 		if err != nil {
 			return nil, err
 		}
 	}
 	maps.Copy(request.Header, buildRequestHeader(c.headers, c.authorization, false))
-	err := request.Write(conn)
+	var err error
+	if c.connectTargetOptions && (c.path != "" || c.delHost || c.withAt != "" || c.baiduDirect) {
+		err = c.writeConnectRequest(conn, request, destination.String())
+	} else {
+		err = request.Write(conn)
+	}
 	if err != nil {
 		return nil, E.Cause(err, "write request")
 	}
@@ -324,6 +355,37 @@ func (c *Client) connect(ctx context.Context, conn net.Conn, destination M.Socks
 		return bufio.NewCachedConn(conn, buffer), nil
 	}
 	return conn, nil
+}
+
+// writeConnectRequest handles nonstandard HTTP/1 CONNECT request lines that
+// net/http cannot serialize, without changing the shared HTTP client behavior.
+func (c *Client) writeConnectRequest(conn io.Writer, request *http.Request, target string) error {
+	suffix := c.path
+	separator := " "
+	if suffix == "" {
+		if c.baiduDirect {
+			separator = ""
+		} else if c.withAt != "" {
+			suffix = "@" + c.withAt
+		}
+	}
+	if _, err := fmt.Fprintf(conn, "CONNECT %s%s%sHTTP/1.1\r\n", target, suffix, separator); err != nil {
+		return err
+	}
+	headers := request.Header.Clone()
+	if c.host != "" {
+		headers.Set("Host", c.host)
+	} else if !c.delHost {
+		headers.Set("Host", target)
+	}
+	if _, ok := c.headers["User-Agent"]; !ok && (!c.delHost || c.host != "") {
+		headers.Set("User-Agent", "Go-http-client/1.1")
+	}
+	if err := headers.Write(conn); err != nil {
+		return err
+	}
+	_, err := conn.Write([]byte("\r\n"))
+	return err
 }
 
 func buildRequestHeader(headers http.Header, authorization string, originAuthorization bool) http.Header {

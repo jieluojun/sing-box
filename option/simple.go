@@ -95,6 +95,7 @@ type _HTTPOutboundOptions struct {
 	Password string `json:"password,omitempty"`
 	OutboundTLSOptionsContainer
 	Path                   string               `json:"path,omitempty"`
+	DelHost                bool                 `json:"del_host,omitempty"`
 	Headers                badoption.HTTPHeader `json:"headers,omitempty"`
 	Network                NetworkList          `json:"network,omitempty"`
 	Version                int                  `json:"version,omitempty" enum:"0,1,2,3"`

@@ -12,6 +12,7 @@
   "username": "sekai",
   "password": "admin",
   "path": "",
+  "del_host": false,
   "headers": {},
   "network": "tcp",
   "version": 0,
@@ -47,11 +48,15 @@ Basic authorization password.
 
 #### path
 
-Path of HTTP request.
+Suffix appended to the HTTP/1 CONNECT target, for example `@example.com` or `/path`. This takes precedence over `With-At` and `Baidu-Direct`.
 
 #### headers
 
-Extra headers of HTTP request.
+Extra headers of HTTP request. `With-At` and `Baidu-Direct` are local HTTP/1 CONNECT options and are not sent upstream. `With-At` appends `@` and its value to the target; `Baidu-Direct: true` removes the space before `HTTP/1.1`. If both are set, Baidu-Direct takes precedence.
+
+#### del_host
+
+For HTTP/1, omit the default Host and User-Agent headers. A custom Host disables this behavior; a custom User-Agent is preserved.
 
 #### network
 
@@ -71,9 +76,9 @@ HTTP version.
 
 Available values: `1`, `2`, `3`.
 
-`2` is used by default, or `1` if `path` or the `Host` header is set.
+`2` is used by default, or `1` if `path`, `del_host`, `With-At`, `Baidu-Direct: true`, or the `Host` header is set.
 
-`path` and the `Host` header are only available for `1`.
+These options are only available for `1`. `path` changes the CONNECT request target, rather than replacing it; this differs from the previous sing-box HTTP outbound behavior.
 
 When `3`, [HTTP2 Fields](#http2-fields) are replaced by [QUIC Fields](#quic-fields).
 

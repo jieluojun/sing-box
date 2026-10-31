@@ -171,6 +171,7 @@ nav:
           - configuration/inbound/index.md
           - Direct: configuration/inbound/direct.md
           - Mixed: configuration/inbound/mixed.md
+          - CNS: configuration/inbound/cns.md
           - SOCKS: configuration/inbound/socks.md
           - HTTP: configuration/inbound/http.md
           - Shadowsocks: configuration/inbound/shadowsocks.md
@@ -199,6 +200,7 @@ nav:
           - Direct: configuration/outbound/direct.md
           - Bridge: configuration/outbound/bridge.md
           - Block: configuration/outbound/block.md
+          - CNS: configuration/outbound/cns.md
           - SOCKS: configuration/outbound/socks.md
           - HTTP: configuration/outbound/http.md
           - Shadowsocks: configuration/outbound/shadowsocks.md
