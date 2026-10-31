@@ -2,7 +2,10 @@ package provider
 
 import (
 	"context"
+	"errors"
 	"io"
+	"io/fs"
+	"os"
 	"path/filepath"
 	"sync"
 	"time"
@@ -45,6 +48,8 @@ type ProviderLocal struct {
 	lastEPOpts  []option.Endpoint
 	lastUpdated time.Time
 	watcher     *fswatch.Watcher
+	watchCancel context.CancelFunc
+	watchDone   chan struct{}
 
 	overrideDialer    *option.OverrideDialerOptions
 	overrideTLS       *option.OverrideTLSOptions
@@ -102,16 +107,10 @@ func NewProviderLocal(ctx context.Context, router adapter.Router, logFactory log
 	watcher, err := fswatch.NewWatcher(fswatch.Options{
 		Path: []string{absPath, dir},
 		Callback: func(eventPath string) {
-			if filepath.Base(eventPath) == targetFile || eventPath == absPath {
-				uErr := provider.reloadFile(absPath)
-				if uErr != nil {
-					logger.Error(E.Cause(uErr, "reload provider ", tag))
-				} else {
-					logger.Info("reloaded local provider ", tag)
-				}
-				provider.UpdateGroups()
+			if filepath.Base(eventPath) != targetFile && eventPath != absPath {
+				return
 			}
-			provider.UpdateGroups()
+			provider.reloadWatchedFile()
 		},
 	})
 	if err != nil {
@@ -128,18 +127,78 @@ func (s *ProviderLocal) StartContext(ctx context.Context, startContext *adapter.
 		s.UpdateGroups()
 	} else {
 		err := s.reloadFile(s.path)
-		if err != nil {
+		missing := errors.Is(err, fs.ErrNotExist)
+		if err != nil && !missing {
 			return err
+		}
+		if missing {
+			s.logger.Warn("local provider file not found, starting empty: ", s.path)
 		}
 		s.UpdateGroups()
 		if s.watcher != nil {
-			err := s.watcher.Start()
-			if err != nil {
-				s.logger.Error(E.Cause(err, "watch provider file"))
+			if err = s.startWatcher(); err != nil {
+				if errors.Is(err, fs.ErrNotExist) {
+					s.waitForWatchDirectory()
+				} else {
+					s.logger.Error(E.Cause(err, "watch provider file"))
+				}
+			} else if missing {
+				// Close the gap between the first read and installing the watcher.
+				s.reloadWatchedFile()
 			}
 		}
 	}
 	return s.Adapter.Start()
+}
+
+// startWatcher checks the directory first so a missing parent does not create
+// a leaking fsnotify watcher. A missing directory is retried in the background.
+func (s *ProviderLocal) startWatcher() error {
+	_, err := os.Stat(filepath.Dir(s.path))
+	if err != nil {
+		return err
+	}
+	return s.watcher.Start()
+}
+
+func (s *ProviderLocal) waitForWatchDirectory() {
+	ctx, cancel := context.WithCancel(s.ctx)
+	s.watchCancel = cancel
+	s.watchDone = make(chan struct{})
+	go func() {
+		defer close(s.watchDone)
+		ticker := time.NewTicker(time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				if err := s.startWatcher(); err != nil {
+					if !errors.Is(err, fs.ErrNotExist) {
+						s.logger.Error(E.Cause(err, "watch provider file"))
+						return
+					}
+					continue
+				}
+				// The file may already exist by the time its parent is watched.
+				s.reloadWatchedFile()
+				return
+			}
+		}
+	}()
+}
+
+func (s *ProviderLocal) reloadWatchedFile() {
+	err := s.reloadFile(s.path)
+	if err != nil {
+		if !errors.Is(err, fs.ErrNotExist) {
+			s.logger.Error(E.Cause(err, "reload provider ", s.Tag()))
+		}
+		return
+	}
+	s.logger.Info("reloaded local provider ", s.Tag())
+	s.UpdateGroups()
 }
 
 func (s *ProviderLocal) Update() error {
@@ -193,5 +252,9 @@ func (s *ProviderLocal) reloadFile(path string) error {
 }
 
 func (s *ProviderLocal) Close() error {
-	return common.Close(&s.Adapter, common.PtrOrNil(s.watcher))
+	if s.watchCancel != nil {
+		s.watchCancel()
+		<-s.watchDone
+	}
+	return common.Close(common.PtrOrNil(s.watcher), &s.Adapter)
 }
