@@ -30,11 +30,6 @@ func TestWithAtOverrideSubscription(t *testing.T) {
 		{"unset", `{}`, "old.example", ""},
 		{"set", `{"with_at":"gw.alicdn.com"}`, "gw.alicdn.com", "gw.alicdn.com"},
 		{"clear", `{"with_at":""}`, "", ""},
-		{"alias", `{"With-At":"gw.alicdn.com"}`, "gw.alicdn.com", "gw.alicdn.com"},
-		{"alias clear", `{"With-At":""}`, "", ""},
-		{"both canonical wins", `{"with_at":"first.example","With-At":"second.example"}`, "first.example", "first.example"},
-		{"both reverse order", `{"With-At":"second.example","with_at":"first.example"}`, "first.example", "first.example"},
-		{"empty canonical wins", `{"With-At":"second.example","with_at":""}`, "", ""},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			var override option.OverrideTransportOptions

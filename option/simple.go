@@ -3,6 +3,8 @@ package option
 import (
 	"context"
 	"reflect"
+	"slices"
+	"strings"
 
 	"github.com/sagernet/sing-box/schema"
 	"github.com/sagernet/sing/common/auth"
@@ -106,8 +108,36 @@ type _HTTPOutboundOptions struct {
 
 type HTTPOutboundOptions _HTTPOutboundOptions
 
+// orderedHTTPOutboundHeaders keeps the local CONNECT option first in saved
+// subscription JSON. JSON object order does not affect HTTP request behavior.
+type orderedHTTPOutboundHeaders badoption.HTTPHeader
+
+func (h orderedHTTPOutboundHeaders) MarshalJSONContext(ctx context.Context) ([]byte, error) {
+	keys := make([]string, 0, len(h))
+	for key := range h {
+		keys = append(keys, key)
+	}
+	slices.Sort(keys)
+	var result badjson.JSONObject
+	for _, key := range keys {
+		if strings.EqualFold(key, "With-At") {
+			result.Put(key, h[key])
+		}
+	}
+	for _, key := range keys {
+		if !strings.EqualFold(key, "With-At") {
+			result.Put(key, h[key])
+		}
+	}
+	return result.MarshalJSONContext(ctx)
+}
+
 func (o HTTPOutboundOptions) MarshalJSON() ([]byte, error) {
-	return badjson.MarshallObjects(_HTTPOutboundOptions(o), httpVersionVariant(o.Version, o.HTTP2Options, o.HTTP3Options))
+	options := struct {
+		_HTTPOutboundOptions
+		Headers orderedHTTPOutboundHeaders `json:"headers,omitempty"`
+	}{_HTTPOutboundOptions: _HTTPOutboundOptions(o), Headers: orderedHTTPOutboundHeaders(o.Headers)}
+	return badjson.MarshallObjects(options, httpVersionVariant(o.Version, o.HTTP2Options, o.HTTP3Options))
 }
 
 func (o *HTTPOutboundOptions) UnmarshalJSONContext(ctx context.Context, content []byte) error {

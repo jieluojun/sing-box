@@ -20570,9 +20570,6 @@
         "with_at": {
           "type": "string"
         },
-        "With-At": {
-          "type": "string"
-        },
         "xhttp_download_enabled": {
           "type": "boolean"
         },
