@@ -1,0 +1,59 @@
+name: Build PR core
+
+on:
+  pull_request:
+    branches:
+      - xiaobaf14g-testing
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-core-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Linux ${{ matrix.arch }}${{ matrix.ebpf && ' (eBPF)' || '' }}
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [amd64, arm64]
+        ebpf: [false, true]
+    steps:
+      - name: Checkout PR merge commit
+        uses: actions/checkout@v6
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: '1.27.1'
+
+      - name: Build core
+        env:
+          CGO_ENABLED: '0'
+          GOOS: linux
+          GOARCH: ${{ matrix.arch }}
+          EBPF: ${{ matrix.ebpf }}
+        run: |
+          set -euo pipefail
+          tags=$(cat release/DEFAULT_BUILD_TAGS_OTHERS)
+          suffix=''
+          if [ "$EBPF" = true ]; then
+            tags="${tags},with_ebpf"
+            suffix='-ebpf'
+          fi
+          version="pr-${GITHUB_SHA:0:12}"
+          mkdir -p dist
+          go build -trimpath -buildvcs=false -tags "$tags" \
+            -ldflags "-s -w -buildid= $(cat release/LDFLAGS) -X github.com/sagernet/sing-box/constant.Version=${version}" \
+            -o "dist/sing-box-linux-${GOARCH}${suffix}" ./cmd/sing-box
+
+      - name: Upload core
+        uses: actions/upload-artifact@v5
+        with:
+          name: sing-box-linux-${{ matrix.arch }}${{ matrix.ebpf && '-ebpf' || '' }}
+          path: dist/sing-box-*
+          if-no-files-found: error
+          retention-days: 7
