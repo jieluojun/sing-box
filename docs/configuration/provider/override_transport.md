@@ -30,7 +30,7 @@ When omitted, the subscription value is preserved; an empty string clears it. Af
 
 Override the `With-At` special header on HTTP outbounds in local or remote subscriptions. Supply the value without `@`: for example, `"gw.alicdn.com"` appends `@gw.alicdn.com` to the HTTP/1 CONNECT target. `With-At` itself is not sent as a header. Other headers and `del_host` are unchanged.
 
-When omitted, the original value is preserved; an empty string clears it. A nonempty node `path` takes precedence; when `path` is empty, `Baidu-Direct: true` also takes precedence. Ensure these do not conflict if `with_at` should take effect. A nonempty value requires HTTP/1 and is incompatible with explicitly configured HTTP/2 or HTTP/3. It must not contain spaces or control characters.
+`"With-At"` can also be used as an alias for `"with_at"` in `override_transport`. If both are set, `with_at` takes precedence, including an empty string. When omitted, the original value is preserved; an empty string clears it. A nonempty node `path` takes precedence; when `path` is empty, `Baidu-Direct: true` also takes precedence. Ensure these do not conflict if `with_at` should take effect. A nonempty value requires HTTP/1 and is incompatible with explicitly configured HTTP/2 or HTTP/3. It must not contain spaces or control characters.
 
 The following XHTTP download fields apply to nodes using XHTTP with `download_settings`.
 
