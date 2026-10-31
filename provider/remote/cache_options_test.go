@@ -162,3 +162,13 @@ func TestProviderRemoteCacheFromURLOnlyBuild(t *testing.T) {
 	require.True(t, loaded, "cache written by older builds is still served")
 	require.True(t, provider.optionsChanged, "and refreshed once to record the options hash")
 }
+
+func TestProviderCacheKeyTracksHostOverride(t *testing.T) {
+	first := "v.qq.com"
+	second := "example.com"
+	plain := processOptionsHash(nil, nil, nil, nil, nil, nil)
+	one := processOptionsHash(nil, nil, nil, nil, nil, &option.OverrideTransportOptions{Host: &first})
+	two := processOptionsHash(nil, nil, nil, nil, nil, &option.OverrideTransportOptions{Host: &second})
+	require.NotEqual(t, plain, one)
+	require.NotEqual(t, one, two)
+}

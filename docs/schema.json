@@ -20561,6 +20561,9 @@
     "OverrideTransportOptions": {
       "type": "object",
       "properties": {
+        "host": {
+          "type": "string"
+        },
         "xhttp_download_enabled": {
           "type": "boolean"
         },

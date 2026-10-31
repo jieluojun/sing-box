@@ -2,6 +2,7 @@
 
 ```json
 {
+  "host": "v.qq.com",
   "xhttp_download_enabled": true,
   "xhttp_download_detour": ""
 }
@@ -9,7 +10,15 @@
 
 ### 字段
 
-作用于使用 XHTTP 传输层并配置了 `download_settings` 的节点。
+#### host
+
+统一覆写订阅节点的 Host，适用于 VMess、VLESS、Trojan 的 WebSocket、HTTP（包括 H2）、HTTPUpgrade 和 XHTTP 传输，以及 CNS 和 HTTP 出站。保留其他请求头，忽略不支持 Host 的节点；即使节点原本未设置 Host，也会写入新值。XHTTP 独立下行 `download_settings` 的 Host 不受影响。
+
+此字段适用于本地和远程订阅，不支持内联 provider；CNS 节点须使用 sing-box 格式订阅。
+
+此字段不会更改 TLS SNI；如需同时覆写，可设置 `"override_tls": {"server_name": "v.qq.com"}`。该覆写仅作用于已有 TLS 配置的节点。
+
+以下 XHTTP 下行字段作用于已配置 `download_settings` 的节点。
 
 #### xhttp_download_enabled
 
