@@ -53,10 +53,15 @@ jobs:
             suffix='-ebpf'
           fi
           version="pr-${GITHUB_SHA:0:12}"
+          commit=$(git rev-parse --verify HEAD^{commit})
           mkdir -p dist
           go build -trimpath -buildvcs=false -tags "$tags" \
-            -ldflags "-s -w -buildid= $(cat release/LDFLAGS) -X github.com/sagernet/sing-box/constant.Version=${version}" \
+            -ldflags "-s -w -buildid= $(cat release/LDFLAGS) -X github.com/sagernet/sing-box/constant.Version=${version} -X github.com/sagernet/sing-box/constant.Commit=${commit}" \
             -o "dist/sing-box-linux-${GOARCH}${suffix}" ./cmd/sing-box
+
+      - name: Test panel version
+        if: matrix.arch == 'amd64' && !matrix.ebpf
+        run: go test -run 'TestPanelVersion|TestVersionEndpoint|TestLinkerFlags' ./constant ./experimental/clashapi ./cmd/internal/build_shared
 
       - name: Upload core
         uses: actions/upload-artifact@v5

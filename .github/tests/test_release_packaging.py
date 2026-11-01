@@ -45,6 +45,7 @@ else
   done
 fi
 ''')
+        (self.bin / "git").write_text('#!/usr/bin/env bash\nprintf "%s\\n" 149ad84c81234567890123456789012345678901\n')
         (self.bin / "pigz").write_text('#!/usr/bin/env bash\nexec gzip "$@"\n')
         for tool in self.bin.iterdir():
             tool.chmod(0o755)
@@ -74,6 +75,7 @@ fi
         self.run_step("experimental", "Pack with tar.gz")
         self.assert_archive(f"sing-box-{ARTIFACT_VERSION}-linux_arm64-easytier")
         self.assertIn(f"constant.Version={VERSION}", (self.dir / "go-log").read_text())
+        self.assertIn("constant.Commit=149ad84c81234567890123456789012345678901", (self.dir / "go-log").read_text())
 
     def test_android_normal_and_experimental_archive_names(self):
         ndk = self.dir / "ndk" / "toolchains/llvm/prebuilt/linux-x86_64/bin"
