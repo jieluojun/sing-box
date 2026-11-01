@@ -631,11 +631,13 @@ wazero 仅在 amd64 与 arm64 架构上以编译方式执行，其他架构使�
 
 ## 发布产物
 
-推送 `v*` 标签或手动触发 `xiaobaf14g-release.yml` 工作流后，将构建全部产物并发布至 [Releases](https://github.com/MiChongs/sing-box/releases)。版本号格式为 `<上游版本>-xiaobaf14g.<序号>`（例如 `1.15.0-alpha.13-xiaobaf14g.1`），包含 `-alpha`、`-beta` 或 `-rc` 的版本标记为预发布版本。
+推送 `v*` 标签或手动触发 `xiaobaf14g-release.yml` 工作流后，将构建产物并发布至 [Releases](https://github.com/MiChongs/sing-box/releases)。Release 标签和标题格式为 `sing-box-<显示版本>-<9位源码提交哈希>`，例如 `sing-box-1.15-alpha.13-149ad84c8`。显示版本省略零补丁号（`1.15.0-alpha.13` 显示为 `1.15-alpha.13`），非零补丁号保留。推送的原始 `v*` 标签不会被修改。
 
-手动运行工作流时，版本号可留空：系统会基于当前提交可到达的最近版本标签，加上 `-auto.<运行 ID>.<重试次数>` 自动生成；没有版本标签时使用仓库中的 `release/BASE_VERSION` 作为基底；同步到新的上游版本时应一并更新该文件。自动生成的标签不会作为后续构建的版本基底。自动生成的标签仍会创建 GitHub Release，是否标记为预发布由工作流选项决定。
+手动运行工作流时，版本号可留空：系统会使用当前提交可到达的最近版本标签；没有版本标签时使用仓库中的 `release/BASE_VERSION`。同步到新的上游版本时应一并更新该文件。是否标记为预发布由工作流选项决定；标签触发时根据 `alpha`、`beta` 或 `rc` 判断。
 
-命令行程序的文件名格式为 `sing-box-<版本>-<系统>-<架构>[<后缀>].tar.gz`。内核版本和文件名移除 `-xiaobaf14g.<序号>` 和 `-auto.<运行 ID>.<重试次数>` 后缀；Release 标签仍保留这些标识，避免重复发布时覆盖其他构建。
+命令行内核文件及压缩包格式为 `sing-box-<显示版本>-<提交哈希>-<系统>_<架构>[<后缀>]`，例如 `sing-box-1.15-alpha.13-149ad84c8-android_arm64.tar.gz`。图形客户端使用自己的 SFA/SFW/SFL 前缀并附带相同显示版本与哈希。内核报告的版本仍保留完整上游版本和 `-zero` 后缀；客户端内部版本保持原有格式。相同版本和提交会生成相同标签，已有同名 Release 时构建会停止，不会覆盖已有发布。
+
+**兼容性提示：**新 Release 标签不是 SemVer。现有 SFW 客户端的自动更新检查依赖 SemVer 标签，无法识别新格式，需手动下载更新；旧版 SFA 基于标签的版本排序也可能不准确。此工作流不会修改这些外部客户端的源码。
 
 | 系统 | 架构 |
 |---|---|
@@ -643,7 +645,7 @@ wazero 仅在 amd64 与 arm64 架构上以编译方式执行，其他架构使�
 | Linux | `amd64`、`amd64-v3-glibc`、`arm64`、`arm64-musl`、`386`、`arm-v7`、`mipsle-softfloat`、`mips64le-softfloat`、`riscv64`、`loong64` |
 | macOS | `amd64`、`arm64` |
 | FreeBSD | `amd64`、`arm64` |
-| Android | `arm64-v8a` |
+| Android | `arm64` |
 
 | 后缀 | 说明 |
 |---|---|

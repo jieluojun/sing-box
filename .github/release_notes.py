@@ -58,10 +58,9 @@ def resolve_range(tag):
         target = git("rev-parse", "HEAD").strip()
     previous = env("PREV")
     if not previous:
-        # 只认祖先链上的 xiaobaf14g tag：同步进来的上游 tag 历史被改写过，
-        # 与当前 tag 没有近的共同祖先。
+        # 只认本仓库的当前和旧版 release tag，忽略同步进来的上游 tag。
         try:
-            previous = git("describe", "--tags", "--abbrev=0", "--match", "v*-xiaobaf14g*", f"{target}^").strip()
+            previous = git("describe", "--tags", "--abbrev=0", "--match", "sing-box-*", "--match", "v*-xiaobaf14g*", f"{target}^").strip()
         except subprocess.CalledProcessError:
             previous = ""
     return target, previous
@@ -125,7 +124,7 @@ def ordered(names):
 
 
 def scan_builds(builds, version):
-    core = re.compile(rf"^sing-box-{re.escape(version)}-(?P<os>[a-z]+)-(?P<rest>.+?)\.(?:tar\.gz|zip)$")
+    core = re.compile(rf"^sing-box-{re.escape(version)}-(?P<os>[a-z]+)[-_](?P<rest>.+?)\.(?:tar\.gz|zip)$")
     sfa = re.compile(rf"^SFA-{re.escape(version)}-(?:(?P<legacy>legacy-android-5)-)?(?P<abi>.+)\.apk$")
     sfw = re.compile(rf"^SFW-{re.escape(version)}-(?P<arch>.+)\.exe$")
     result = {
@@ -244,8 +243,9 @@ def main():
     server = env("SERVER_URL", "https://github.com")
     repo = env("REPO", "MiChongs/sing-box")
     run_url = f"{server}/{repo}/actions/runs/{env('RUN_ID')}"
-    version = tag.removeprefix("v")
-    base_version = re.sub(r"-xiaobaf14g\.\d+$", "", version)
+    version = env("VERSION", tag.removeprefix("v"))
+    base_version = re.sub(r"-xiaobaf14g\.\d+(?:-auto\..*)?$", "", version)
+    artifact_version = env("ARTIFACT_VERSION", version)
 
     target, previous = resolve_range(tag)
     compare_url = f"{server}/{repo}/compare/{previous}...{tag}" if previous else ""
@@ -256,7 +256,7 @@ def main():
         meta.append(f"[完整变更]({compare_url})")
     lines = [" · ".join(meta), ""]
 
-    found = scan_builds(Path(env("BUILDS_DIR", "builds")), version)
+    found = scan_builds(Path(env("BUILDS_DIR", "builds")), artifact_version)
     lines += build_problems(found, run_url)
 
     upstream = [f"- {upstream_entry(subject)}" for _, subject in first_parent_log(target, previous, True)] if previous else []
