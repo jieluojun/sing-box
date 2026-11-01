@@ -85,7 +85,7 @@ fi
         self.run_step("android", "Build via build_libbox", **env)
         self.run_step("android", "Build experimental variants via build_libbox", **env)
         for suffix in ("", "-ebpf", "-easytier", "-ebpf-easytier"):
-            self.assert_archive(f"sing-box-{ARTIFACT_VERSION}-android_arm64{suffix}")
+            self.assert_archive(f"sing-box-{ARTIFACT_VERSION}-android-arm64-v8a{suffix}")
         self.assertIn(f"-version {VERSION}", (self.dir / "go-log").read_text())
 
     @unittest.skipUnless(shutil.which("pwsh"), "PowerShell not installed")

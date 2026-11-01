@@ -635,7 +635,7 @@ wazero 仅在 amd64 与 arm64 架构上以编译方式执行，其他架构使�
 
 手动运行工作流时，版本号可留空：系统会使用当前提交可到达的最近版本标签；没有版本标签时使用仓库中的 `release/BASE_VERSION`。同步到新的上游版本时应一并更新该文件。是否标记为预发布由工作流选项决定；标签触发时根据 `alpha`、`beta` 或 `rc` 判断。
 
-命令行内核文件及压缩包格式为 `sing-box-<显示版本>-<提交哈希>-<系统>_<架构>[<后缀>]`，例如 `sing-box-1.15-alpha.13-149ad84c8-android_arm64.tar.gz`。图形客户端使用自己的 SFA/SFW/SFL 前缀并附带相同显示版本与哈希。内核报告的版本仍保留完整上游版本和 `-zero` 后缀；客户端内部版本保持原有格式。相同版本和提交会生成相同标签，已有同名 Release 时构建会停止，不会覆盖已有发布。
+命令行内核文件及压缩包格式为 `sing-box-<显示版本>-<提交哈希>-<系统>_<架构>[<后缀>]`；Android 使用 `android-arm64-v8a`，例如 `sing-box-1.15-alpha.13-149ad84c8-android-arm64-v8a.tar.gz`。图形客户端使用自己的 SFA/SFW/SFL 前缀并附带相同显示版本与哈希。内核报告的版本仍保留完整上游版本和 `-zero` 后缀；客户端内部版本保持原有格式。相同版本和提交会生成相同标签，已有同名 Release 时构建会停止，不会覆盖已有发布。
 
 **兼容性提示：**新 Release 标签不是 SemVer。现有 SFW 客户端的自动更新检查依赖 SemVer 标签，无法识别新格式，需手动下载更新；旧版 SFA 基于标签的版本排序也可能不准确。此工作流不会修改这些外部客户端的源码。
 
@@ -645,7 +645,7 @@ wazero 仅在 amd64 与 arm64 架构上以编译方式执行，其他架构使�
 | Linux | `amd64`、`amd64-v3-glibc`、`arm64`、`arm64-musl`、`386`、`arm-v7`、`mipsle-softfloat`、`mips64le-softfloat`、`riscv64`、`loong64` |
 | macOS | `amd64`、`arm64` |
 | FreeBSD | `amd64`、`arm64` |
-| Android | `arm64` |
+| Android | `arm64-v8a` |
 
 | 后缀 | 说明 |
 |---|---|

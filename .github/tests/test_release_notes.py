@@ -18,7 +18,8 @@ class ReleaseNotesTest(unittest.TestCase):
             version = "1.15-alpha.13-149ad84c8"
             for name in (
                 f"sing-box-{version}-android_arm64.tar.gz",
-                f"sing-box-{version}-android_arm64-ebpf-easytier.tar.gz",
+                f"sing-box-{version}-android-arm64-v8a.tar.gz",
+                f"sing-box-{version}-android-arm64-v8a-ebpf-easytier.tar.gz",
                 f"sing-box-{version}-linux_amd64-v3-glibc.tar.gz",
                 f"sing-box-{version}-windows-amd64.zip",
                 f"SFA-{version}-universal.apk",
@@ -29,7 +30,7 @@ class ReleaseNotesTest(unittest.TestCase):
             ):
                 (path / name).touch()
             found = notes.scan_builds(path, version)
-            self.assertEqual(found["core"]["android"], {"arm64"})
+            self.assertEqual(found["core"]["android"], {"arm64", "arm64-v8a"})
             self.assertEqual(found["core"]["linux"], {"amd64"})
             self.assertEqual(found["core"]["windows"], {"amd64"})
             self.assertEqual(found["variants"], {"ebpf", "easytier", "v3", "glibc"})
@@ -47,7 +48,7 @@ class ReleaseNotesTest(unittest.TestCase):
                             "commit", "--allow-empty", "-qm", "feat: example"], cwd=root, check=True)
             builds = root / "builds"
             builds.mkdir()
-            (builds / "sing-box-1.15-alpha.13-149ad84c8-android_arm64.tar.gz").touch()
+            (builds / "sing-box-1.15-alpha.13-149ad84c8-android-arm64-v8a.tar.gz").touch()
             env = dict(os.environ, TAG="sing-box-1.15-alpha.13-149ad84c8", VERSION="1.15.0-alpha.13",
                        ARTIFACT_VERSION="1.15-alpha.13-149ad84c8", BUILDS_DIR=str(builds),
                        IS_PRE="true", SKIP_ANDROID="false", SKIP_GUI="true", ANDROID_RES="success",
@@ -55,7 +56,7 @@ class ReleaseNotesTest(unittest.TestCase):
             result = subprocess.run(["python3", str(spec.origin)], cwd=root, env=env,
                                     capture_output=True, text=True, check=True)
             self.assertIn("基于 SagerNet **1.15.0-alpha.13**", result.stdout)
-            self.assertIn("| **Android** | arm64 |", result.stdout)
+            self.assertIn("| **Android** | arm64-v8a |", result.stdout)
 
     def test_resolve_previous_new_tag_and_legacy_fallback(self):
         with tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ, {"PREV": ""}):

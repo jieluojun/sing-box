@@ -535,7 +535,7 @@ jobs:
             # NDK strip 减体积（约 -30%）
             "$STRIP" --strip-all sing-box-android-arm64-v8a
             ls -lh sing-box-android-arm64-v8a
-            NAME="sing-box-${ARTIFACT_VERSION}-android_arm64${VARIANT}"
+            NAME="sing-box-${ARTIFACT_VERSION}-android-arm64-v8a${VARIANT}"
             mv sing-box-android-arm64-v8a "$NAME"
             tar cf - "$NAME" | pigz -9 > "dist/${NAME}.tar.gz"
             rm -f "$NAME"
@@ -558,7 +558,7 @@ jobs:
               -version "${VERSION}" -tags "${tags}"
             "$STRIP" --strip-all sing-box-android-arm64-v8a
             ls -lh sing-box-android-arm64-v8a
-            local name="sing-box-${ARTIFACT_VERSION}-android_arm64${variant}"
+            local name="sing-box-${ARTIFACT_VERSION}-android-arm64-v8a${variant}"
             mv sing-box-android-arm64-v8a "$name"
             tar cf - "$name" | pigz -9 > "dist/${name}.tar.gz"
             rm -f "$name"
@@ -576,7 +576,7 @@ jobs:
             if [ "$STATUS" -ne 0 ]; then
               FAILED+=("$VARIANT")
               echo "::error::android/arm64${VARIANT} experimental build failed"
-              rm -f sing-box-android-arm64-v8a "sing-box-${ARTIFACT_VERSION}-android_arm64${VARIANT}" "dist/sing-box-${ARTIFACT_VERSION}-android_arm64${VARIANT}.tar.gz"
+              rm -f sing-box-android-arm64-v8a "sing-box-${ARTIFACT_VERSION}-android-arm64-v8a${VARIANT}" "dist/sing-box-${ARTIFACT_VERSION}-android-arm64-v8a${VARIANT}.tar.gz"
             fi
             echo "::endgroup::"
           done
