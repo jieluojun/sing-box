@@ -637,6 +637,8 @@ wazero 仅在 amd64 与 arm64 架构上以编译方式执行，其他架构使�
 
 命令行内核文件及压缩包格式为 `sing-box-<显示版本>-<提交哈希>-<系统>_<架构>[<后缀>]`；Android 使用 `android-arm64-v8a`，例如 `sing-box-1.15-alpha.13-149ad84c8-android-arm64-v8a.tar.gz`。图形客户端使用自己的 SFA/SFW/SFL 前缀并附带相同显示版本与哈希。内核报告的版本仍保留完整上游版本和 `-zero` 后缀；客户端内部版本保持原有格式。相同版本和提交会生成相同标签，已有同名 Release 时构建会停止，不会覆盖已有发布。
 
+Zashboard 等 Clash API 面板显示的内核版本包含源码提交的前 9 位，例如 `1.15.0-alpha.13-820679ca4-zero`；这不会改变内核及客户端使用的内部版本。自定义构建若禁用 Go 的 VCS 信息，可通过 linker flag `-X github.com/sagernet/sing-box/constant.Commit=<完整提交哈希>` 提供提交号；没有可用提交号时仍显示原版本。
+
 **兼容性提示：**新 Release 标签不是 SemVer。现有 SFW 客户端的自动更新检查依赖 SemVer 标签，无法识别新格式，需手动下载更新；旧版 SFA 基于标签的版本排序也可能不准确。此工作流不会修改这些外部客户端的源码。
 
 | 系统 | 架构 |

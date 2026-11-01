@@ -267,7 +267,8 @@ jobs:
           esac
           BASE_TAGS=$(echo "$BASE_TAGS" | tr ',' '\n' | grep -vx 'with_naive_outbound' | paste -sd, -)
           # release/LDFLAGS 随上游同步（godebug 默认值、checklinkname 等）。
-          LDFLAGS="-s -w -buildid= $(cat release/LDFLAGS) -X github.com/sagernet/sing-box/constant.Version=${VERSION}"
+          COMMIT=$(git rev-parse --verify HEAD^{commit})
+          LDFLAGS="-s -w -buildid= $(cat release/LDFLAGS) -X github.com/sagernet/sing-box/constant.Version=${VERSION} -X github.com/sagernet/sing-box/constant.Commit=${COMMIT}"
           # Musl 静态构建：zig cc 提供 musl headers + libc.a；Go 内部链接器
           # 不支持 musl 静态合并，需 -linkmode=external -extldflags=-static。
           if [ -n "${CC_TARGET}" ]; then
@@ -397,7 +398,8 @@ jobs:
           esac
           BASE_TAGS=$(echo "$BASE_TAGS" | tr ',' '\n' | grep -vx 'with_naive_outbound' | paste -sd, -)
           TAGS="${BASE_TAGS},${FEATURE_TAG}"
-          LDFLAGS="-s -w -buildid= $(cat release/LDFLAGS) -X github.com/sagernet/sing-box/constant.Version=${VERSION}"
+          COMMIT=$(git rev-parse --verify HEAD^{commit})
+          LDFLAGS="-s -w -buildid= $(cat release/LDFLAGS) -X github.com/sagernet/sing-box/constant.Version=${VERSION} -X github.com/sagernet/sing-box/constant.Commit=${COMMIT}"
           NAME="sing-box-${ARTIFACT_VERSION}-${GOOS}_${GOARCH}-${FEATURE}"
           BIN="${NAME}${EXT}"
           mkdir -p dist
