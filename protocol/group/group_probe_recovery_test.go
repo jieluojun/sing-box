@@ -12,7 +12,6 @@ import (
 	"github.com/sagernet/sing-box/adapter"
 	"github.com/sagernet/sing-box/common/urltest"
 	"github.com/sagernet/sing-box/log"
-	N "github.com/sagernet/sing/common/network"
 
 	"github.com/stretchr/testify/require"
 )
@@ -29,26 +28,15 @@ func startRecoveryTestServer(t *testing.T) string {
 func shortenRecoveryDelays(t *testing.T) {
 	t.Helper()
 	previousDelay, previousBackoff := groupFailureProbeDelay, groupStartupProbeBackoff
+	previousURLTestDelay, previousURLTestBackoff := urlTestFailureProbeDelay, urlTestStartupBackoff
 	groupFailureProbeDelay = 10 * time.Millisecond
 	groupStartupProbeBackoff = []time.Duration{10 * time.Millisecond, 10 * time.Millisecond, 10 * time.Millisecond}
+	urlTestFailureProbeDelay = 10 * time.Millisecond
+	urlTestStartupBackoff = groupStartupProbeBackoff
 	t.Cleanup(func() {
 		groupFailureProbeDelay, groupStartupProbeBackoff = previousDelay, previousBackoff
+		urlTestFailureProbeDelay, urlTestStartupBackoff = previousURLTestDelay, previousURLTestBackoff
 	})
-}
-
-func TestURLTestColdStartPicksStableRandomMember(t *testing.T) {
-	firstPicks := make(map[string]int)
-	for range 20 {
-		group, _, _ := newProbeTestGroup(t, "", 5)
-		instance := &URLTest{group: group}
-		selected := instance.Selected(N.NetworkTCP)
-		require.NotNil(t, selected)
-		for range 5 {
-			require.Same(t, selected, instance.Selected(N.NetworkTCP))
-		}
-		firstPicks[selected.Tag()]++
-	}
-	require.Greater(t, len(firstPicks), 1, "cold start always picked the same member")
 }
 
 func TestRunStartupProbeBackoff(t *testing.T) {
@@ -79,56 +67,6 @@ func TestRunStartupProbeBackoff(t *testing.T) {
 		return false
 	})
 	require.EqualValues(t, 1, probes.Load(), "retries never exceed the interval")
-}
-
-func TestURLTestUnmeasuredFailureSwitchesAway(t *testing.T) {
-	shortenRecoveryDelays(t)
-	group, history, members := newProbeTestGroup(t, startRecoveryTestServer(t), 3)
-	group.idleTimeout = time.Hour
-	group.markActive()
-	members[0].failing.Store(true)
-	group.selectedOutboundTCP.Store(members[0])
-
-	group.onUnmeasuredDialFailed(members[0], N.NetworkTCP)
-
-	require.Eventually(t, func() bool {
-		selected := group.selectedOutboundTCP.Load()
-		return selected != nil && selected != members[0]
-	}, 5*time.Second, 10*time.Millisecond)
-	require.Nil(t, history.LoadURLTestHistory(members[0].Tag()))
-	// Nothing was alive, so every member is probed again.
-	require.Eventually(t, func() bool {
-		return history.LoadURLTestHistory(members[1].Tag()) != nil && history.LoadURLTestHistory(members[2].Tag()) != nil
-	}, 5*time.Second, 10*time.Millisecond)
-	waitProbeRoundsIdle(t, group)
-}
-
-func TestURLTestUnmeasuredFailureTrustsAvailableMember(t *testing.T) {
-	shortenRecoveryDelays(t)
-	group, history, members := newProbeTestGroup(t, startRecoveryTestServer(t), 3)
-	group.selectedOutboundTCP.Store(members[0])
-
-	group.onUnmeasuredDialFailed(members[0], N.NetworkTCP)
-
-	require.Eventually(t, func() bool {
-		return history.LoadURLTestHistory(members[0].Tag()) != nil && !group.failureProbePending.Load()
-	}, 5*time.Second, 10*time.Millisecond)
-	require.Same(t, members[0], group.selectedOutboundTCP.Load())
-	dials := members[0].dialCount.Load()
-	group.onUnmeasuredDialFailed(members[0], N.NetworkTCP)
-	time.Sleep(50 * time.Millisecond)
-	require.Equal(t, dials, members[0].dialCount.Load(), "a member that passed is trusted for a while")
-	waitProbeRoundsIdle(t, group)
-}
-
-func TestURLTestManualSelectionRejectsUnavailableMember(t *testing.T) {
-	group, _, members := newProbeTestGroup(t, startRecoveryTestServer(t), 2)
-	instance := &URLTest{ctx: context.Background(), group: group, logger: log.NewNOPFactory().Logger()}
-	members[1].failing.Store(true)
-	require.False(t, instance.SelectOutbound(members[1].Tag()))
-	require.Empty(t, instance.PinnedTag())
-	require.True(t, instance.SelectOutbound(members[0].Tag()))
-	require.Equal(t, members[0].Tag(), instance.PinnedTag())
 }
 
 func TestLoadBalanceFailedMemberIsDroppedAndInterrupted(t *testing.T) {

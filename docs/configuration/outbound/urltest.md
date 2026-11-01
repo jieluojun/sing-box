@@ -101,13 +101,10 @@ The URL to test. `https://www.gstatic.com/generate_204` will be used if empty.
 
 The test interval. `3m` will be used if empty.
 
-Every interval, the current selection and the 3 fastest members are tested, along with members never tested before.
-Other members are refreshed every 4 intervals.
-A member whose tests keep failing is retried after 1, 2, 4 and up to 8 intervals; a network change resets this.
-
-A member tested recently by another group or the API is not tested again, and groups testing the same member at the same time share one test.
-Tests of all groups run at the same moments, so groups with the same interval wake the network once.
-After a network change, the current selection and the fastest members are tested again, at most every 30 seconds.
+Every interval, members whose last result is older than the interval are tested, up to 10 at a time.
+Members of nested groups are tested through those groups, and a member reachable through several of them is tested once per round.
+Health checks run only while the group is in use; after `idle_timeout` without connections they pause until the next connection.
+A network change tests every member again.
 
 #### tolerance
 
@@ -147,6 +144,6 @@ Only inbound connections are affected by this setting, internal connections will
 
 * **Selection**: the fastest member is found first; the current member is kept while its delay is within `tolerance` of it.
 * **Cold start**: until members are measured, a random member supporting the network is picked and kept, so the first connections are not all sent to the first member.
-* **Startup**: members are probed once after startup. When none answers (the network is not ready yet), the probe is retried 15s, 35s and 60s after startup, never later than `interval`, until a member is available or the group goes idle.
-* **Failed connections**: a failing member is retried on the best measured other members. When no other member is measured, the failed member is probed alone 3s later: if it answers it is trusted for one minute, otherwise it is dropped and another member is selected. When no member is left alive, every member is probed again, at most once every 90s.
-* **Manual selection**: selecting a member through the Clash API probes it first and is rejected when it does not answer. The selection is kept by health checks and failures; it is released by a user-triggered speed test or by selecting an empty name.
+* **Startup**: when no member is available after startup (the network is not ready yet), members are tested 15s, 35s and 60s after startup, never later than `interval`, until a member answers or the group goes idle.
+* **Failed connections**: when a connection through the group fails, the failed member is tested alone 3s later. If it answers, it keeps its delay and is trusted for one minute. Otherwise its result is dropped and the fastest other member is selected; when no member is left alive, another member is picked at random and every member is tested again, and for the next 90s further failures switch members right away.
+* **Manual selection**: selecting a member through the Clash API or the client tests it first and is rejected when it does not answer. The member is then pinned: health checks and failed connections never move it, and it is restored after a restart. While pinned, health checks only test the pinned member. The pin is released by a group speed test or by selecting an empty name (`DELETE /proxies/{group}` in the Clash API), which returns to the fastest member at once and refreshes the others in the background. A pin whose member disappears from the providers is released; a TCP-only pin leaves UDP on automatic selection.

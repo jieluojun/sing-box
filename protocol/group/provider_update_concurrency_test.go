@@ -100,13 +100,12 @@ func TestURLTestProviderUpdateReplacesSelectedOutboundInstance(t *testing.T) {
 		interruptGroup: interrupt.NewGroup(),
 	}
 	group.storeOutbounds([]adapter.Outbound{previous})
-	group.selectedOutboundTCP.Store(previous)
-	group.selectedOutboundUDP.Store(previous)
+	group.route.Store(&urlTestRoute{tcp: previous, udp: previous})
 
 	group.replaceOutbounds([]adapter.Outbound{replacement})
 
-	require.Same(t, replacement, group.selectedOutboundTCP.Load())
-	require.Same(t, replacement, group.selectedOutboundUDP.Load())
+	require.Same(t, replacement, group.currentRoute().tcp)
+	require.Same(t, replacement, group.currentRoute().udp)
 }
 
 func TestProviderUpdateCheckCoalescesPendingChecks(t *testing.T) {

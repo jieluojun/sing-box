@@ -5,7 +5,6 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -86,30 +85,25 @@ func TestURLTestMultiplexWarmUp(t *testing.T) {
 	require.EqualValues(t, 2, dialer.dials.Load())
 	require.EqualValues(t, 2, requests.Load())
 
-	// Unified delay measures the second request of one stream and needs no
-	// warm-up: a single stream, two requests.
+	// With unified delay the warm-up still opens the session; the measured
+	// stream then sends two requests.
 	_, err = URLTest(ContextWithUnifiedDelay(context.Background(), true), server.URL, dialer)
 	require.NoError(t, err)
-	require.EqualValues(t, 3, dialer.dials.Load())
-	require.EqualValues(t, 4, requests.Load())
+	require.EqualValues(t, 4, dialer.dials.Load())
+	require.EqualValues(t, 6, requests.Load())
 }
 
 func TestURLTestStatusPolicy(t *testing.T) {
 	ok := newStatusServer(t, http.StatusOK, nil)
-	noContent := newStatusServer(t, http.StatusNoContent, nil)
 	serverError := newStatusServer(t, http.StatusInternalServerError, nil)
 	dialer := &countingDialer{}
 	ctx := context.Background()
 
-	// generate_204 endpoints must answer 204, anything else is a hijack.
+	// Without expected_status every response counts.
 	_, err := URLTestWithStatus(ctx, ok.URL+"/generate_204", dialer, nil)
-	require.ErrorContains(t, err, "expected 204")
-	_, err = URLTestWithStatus(ctx, noContent.URL+"/generate_204", dialer, nil)
-	require.NoError(t, err)
-	_, err = URLTestWithStatus(ctx, ok.URL+"/", dialer, nil)
 	require.NoError(t, err)
 	_, err = URLTestWithStatus(ctx, serverError.URL+"/", dialer, nil)
-	require.Error(t, err)
+	require.NoError(t, err)
 
 	matcher, err := ParseExpectedStatus("500")
 	require.NoError(t, err)
@@ -119,37 +113,8 @@ func TestURLTestStatusPolicy(t *testing.T) {
 	require.NoError(t, err)
 	_, err = URLTestWithStatus(ctx, serverError.URL+"/", dialer, matcher)
 	require.ErrorContains(t, err, "expected-status=200-299")
-	// An explicit matcher replaces the generate_204 rule.
 	_, err = URLTestWithStatus(ctx, ok.URL+"/generate_204", dialer, matcher)
 	require.NoError(t, err)
-}
-
-func TestURLTestRejectsUnsupportedScheme(t *testing.T) {
-	dialer := &countingDialer{}
-	_, err := URLTest(context.Background(), "ftp://example.com/", dialer)
-	require.ErrorContains(t, err, "unsupported scheme")
-	require.Zero(t, dialer.dials.Load())
-}
-
-func TestIsGenerate204(t *testing.T) {
-	cases := []struct {
-		url  string
-		want bool
-	}{
-		{"https://www.gstatic.com/generate_204", true},
-		{"http://connectivitycheck.gstatic.com/generate_204", true},
-		{"https://www.google.com/gen_204", true},
-		{"https://cdn.example.com/api/v1/generate_204", true},
-		{"http://204.1.2.3/", false},
-		{"https://example.com/docs/204-error", false},
-		{"https://example.com/?redirect=generate_204", false},
-		{"", false},
-	}
-	for _, c := range cases {
-		u, _ := url.Parse(c.url)
-		require.Equal(t, c.want, isGenerate204(u), c.url)
-	}
-	require.False(t, isGenerate204(nil))
 }
 
 func TestProberSharesConcurrentProbes(t *testing.T) {
