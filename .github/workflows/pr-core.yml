@@ -13,6 +13,14 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  release-metadata-tests:
+    name: Release metadata and packaging tests
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - name: Test release naming and packaging
+        run: python3 -m unittest discover -s .github/tests -v
+
   build:
     name: Linux ${{ matrix.arch }}${{ matrix.ebpf && ' (eBPF)' || '' }}
     runs-on: ubuntu-24.04
