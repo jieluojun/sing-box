@@ -102,7 +102,21 @@ func (s *abstractRuleSet) setUpdatedTime(updatedAt time.Time) {
 }
 
 func (s *abstractRuleSet) String() string {
-	return strings.Join(F.MapToString(s.rules), " ")
+	return strings.Join(F.MapToString(s.loadRules()), " ")
+}
+
+// loadRules 取当前规则切片。重载和释放只整体替换 s.rules，不修改旧切片，
+// 读锁下拿到的快照可以在锁外继续使用。
+func (s *abstractRuleSet) loadRules() []adapter.HeadlessRule {
+	s.access.RLock()
+	defer s.access.RUnlock()
+	return s.rules
+}
+
+func (s *abstractRuleSet) clearRules() {
+	s.access.Lock()
+	defer s.access.Unlock()
+	s.rules = nil
 }
 
 func (s *abstractRuleSet) Metadata() adapter.RuleSetMetadata {
@@ -199,9 +213,9 @@ func (s *abstractRuleSet) reloadRules(headlessRules []option.HeadlessRule, ruleS
 }
 
 func (s *abstractRuleSet) Match(metadata *adapter.InboundContext) bool {
-	return matchAnyHeadlessRule(s.rules, metadata)
+	return matchAnyHeadlessRule(s.loadRules(), metadata)
 }
 
 func (s *abstractRuleSet) mergeableRule() *DefaultHeadlessRule {
-	return mergeableRuleIn(s.rules)
+	return mergeableRuleIn(s.loadRules())
 }

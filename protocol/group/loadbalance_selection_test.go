@@ -43,8 +43,7 @@ func TestLoadBalanceNetworkSpecificHealth(t *testing.T) {
 	history.StoreURLTestHistory(healthyTCP.Tag(), &adapter.URLTestHistory{Delay: 10})
 	history.StoreURLTestHistory(alternative.Tag(), &adapter.URLTestHistory{Delay: 20})
 	nested := &URLTest{Adapter: adapterOutbound.NewAdapter(C.TypeURLTest, "nested", nil, nil), group: new(URLTestGroup)}
-	nested.group.selectedOutboundTCP.Store(healthyTCP)
-	nested.group.selectedOutboundUDP.Store(unhealthyUDP)
+	nested.group.route.Store(&urlTestRoute{tcp: healthyTCP, udp: unhealthyUDP})
 	group := &LoadBalanceGroup{history: history, outbounds: []adapter.Outbound{nested, alternative}}
 	group.strategyFn = strategyRoundRobin(group, "")
 	require.Same(t, alternative, group.Unwrap(&adapter.InboundContext{Network: N.NetworkUDP}, true))

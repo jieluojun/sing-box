@@ -92,15 +92,13 @@ func TestURLTestSelectionKeepsCurrentWithinTolerance(t *testing.T) {
 		tolerance: 50,
 	}
 	group.storeOutbounds([]adapter.Outbound{current, candidate})
-	group.rebuildRankedCandidates()
-	group.selectedOutboundTCP.Store(current)
+	group.route.Store(&urlTestRoute{tcp: current})
 
 	selected, available := group.Select(N.NetworkTCP)
 	require.True(t, available)
 	require.Same(t, current, selected)
 
 	history.StoreURLTestHistory(candidate.tag, &adapter.URLTestHistory{Time: time.Now(), Delay: 49})
-	group.rebuildRankedCandidates()
 	selected, available = group.Select(N.NetworkTCP)
 	require.True(t, available)
 	require.Same(t, candidate, selected)

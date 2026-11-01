@@ -25,8 +25,7 @@ func TestFallbackChoosesFastestWhenAllExceedThreshold(t *testing.T) {
 		fallback: URLTestFallback{enabled: true, maxDelay: 100},
 	}
 	group.storeOutbounds([]adapter.Outbound{slow, fast})
-	group.selectedOutboundTCP.Store(slow)
-	group.selectedOutboundUDP.Store(slow)
+	group.route.Store(&urlTestRoute{tcp: slow, udp: slow})
 	for _, network := range []string{N.NetworkTCP, N.NetworkUDP} {
 		selected, available := group.Select(network)
 		require.True(t, available)

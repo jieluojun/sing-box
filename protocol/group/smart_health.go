@@ -241,3 +241,24 @@ func (s *Smart) RecordDelays(result map[string]uint16) {
 	}
 	s.refreshRanking()
 }
+
+// storeURLTestHistory records result unless a newer measurement is stored.
+func storeURLTestHistory(history adapter.URLTestHistoryStorage, tag string, result urltest.ProbeResult) {
+	if current := history.LoadURLTestHistory(tag); current != nil && current.Time.After(result.Time) {
+		return
+	}
+	history.StoreURLTestHistory(tag, &adapter.URLTestHistory{
+		Time:  result.Time,
+		Delay: result.Delay,
+	})
+}
+
+// deleteURLTestHistory drops the delay of a member that failed at
+// failedAt, keeping a measurement taken after the failure.
+func deleteURLTestHistory(history adapter.URLTestHistoryStorage, tag string, failedAt time.Time) {
+	current := history.LoadURLTestHistory(tag)
+	if current == nil || current.Time.After(failedAt) {
+		return
+	}
+	history.DeleteURLTestHistory(tag)
+}

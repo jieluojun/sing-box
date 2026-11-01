@@ -153,6 +153,6 @@ func (s *LocalRuleSet) PostStart() error {
 }
 
 func (s *LocalRuleSet) Close() error {
-	s.rules = nil
+	s.clearRules()
 	return common.Close(common.PtrOrNil(s.watcher))
 }
