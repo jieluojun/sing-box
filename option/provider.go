@@ -176,6 +176,9 @@ type OverrideAnyTLSOptions struct {
 }
 
 type OverrideDialerOptions struct {
+	Host                 *string                            `json:"host,omitempty"`
+	Path                 *string                            `json:"path,omitempty"`
+	WithAt               *string                            `json:"with_at,omitempty"`
 	Detour               *string                            `json:"detour,omitempty" reference:"outbound"`
 	BindInterface        *string                            `json:"bind_interface,omitempty"`
 	Inet4BindAddress     *badoption.Addr                    `json:"inet4_bind_address,omitempty"`
@@ -258,9 +261,23 @@ type OverrideRealityOptions struct {
 }
 
 type OverrideTransportOptions struct {
-	Host                 *string `json:"host,omitempty"`
-	Path                 *string `json:"path,omitempty"`
-	WithAt               *string `json:"with_at,omitempty"`
 	XHTTPDownloadEnabled *bool   `json:"xhttp_download_enabled,omitempty"`
 	XHTTPDownloadDetour  *string `json:"xhttp_download_detour,omitempty" reference:"outbound"`
+}
+
+type overrideTransportOptionsJSON OverrideTransportOptions
+
+// Reject misplaced overrides even when a provider's custom decoder is not strict.
+func (o *OverrideTransportOptions) UnmarshalJSON(content []byte) error {
+	return json.UnmarshalDisallowUnknownFields(content, (*overrideTransportOptionsJSON)(o))
+}
+
+func (o OverrideTransportOptions) DescribeSchema(builder schema.Builder) (*schema.Node, error) {
+	return builder.Define("OverrideTransportOptions", func() (*schema.Node, error) {
+		node := schema.StrictObject()
+		if err := builder.FlattenStruct(node, reflect.TypeFor[overrideTransportOptionsJSON]()); err != nil {
+			return nil, err
+		}
+		return node, nil
+	})
 }

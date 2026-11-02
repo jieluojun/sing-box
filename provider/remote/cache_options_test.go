@@ -167,8 +167,8 @@ func TestProviderCacheKeyTracksHostOverride(t *testing.T) {
 	first := "v.qq.com"
 	second := "example.com"
 	plain := processOptionsHash(nil, nil, nil, nil, nil, nil)
-	one := processOptionsHash(nil, nil, nil, nil, nil, &option.OverrideTransportOptions{Host: &first})
-	two := processOptionsHash(nil, nil, nil, nil, nil, &option.OverrideTransportOptions{Host: &second})
+	one := processOptionsHash(nil, nil, &option.OverrideDialerOptions{Host: &first}, nil, nil, nil)
+	two := processOptionsHash(nil, nil, &option.OverrideDialerOptions{Host: &second}, nil, nil, nil)
 	require.NotEqual(t, plain, one)
 	require.NotEqual(t, one, two)
 }
@@ -178,9 +178,9 @@ func TestProviderCacheKeyTracksPathOverride(t *testing.T) {
 	second := "@example.com"
 	empty := ""
 	plain := processOptionsHash(nil, nil, nil, nil, nil, nil)
-	one := processOptionsHash(nil, nil, nil, nil, nil, &option.OverrideTransportOptions{Path: &first})
-	two := processOptionsHash(nil, nil, nil, nil, nil, &option.OverrideTransportOptions{Path: &second})
-	cleared := processOptionsHash(nil, nil, nil, nil, nil, &option.OverrideTransportOptions{Path: &empty})
+	one := processOptionsHash(nil, nil, &option.OverrideDialerOptions{Path: &first}, nil, nil, nil)
+	two := processOptionsHash(nil, nil, &option.OverrideDialerOptions{Path: &second}, nil, nil, nil)
+	cleared := processOptionsHash(nil, nil, &option.OverrideDialerOptions{Path: &empty}, nil, nil, nil)
 	require.NotEqual(t, plain, one)
 	require.NotEqual(t, one, two)
 	require.NotEqual(t, plain, cleared)
@@ -191,9 +191,9 @@ func TestProviderCacheKeyTracksWithAtOverride(t *testing.T) {
 	second := "example.com"
 	empty := ""
 	plain := processOptionsHash(nil, nil, nil, nil, nil, nil)
-	one := processOptionsHash(nil, nil, nil, nil, nil, &option.OverrideTransportOptions{WithAt: &first})
-	two := processOptionsHash(nil, nil, nil, nil, nil, &option.OverrideTransportOptions{WithAt: &second})
-	cleared := processOptionsHash(nil, nil, nil, nil, nil, &option.OverrideTransportOptions{WithAt: &empty})
+	one := processOptionsHash(nil, nil, &option.OverrideDialerOptions{WithAt: &first}, nil, nil, nil)
+	two := processOptionsHash(nil, nil, &option.OverrideDialerOptions{WithAt: &second}, nil, nil, nil)
+	cleared := processOptionsHash(nil, nil, &option.OverrideDialerOptions{WithAt: &empty}, nil, nil, nil)
 	require.NotEqual(t, plain, one)
 	require.NotEqual(t, one, two)
 	require.NotEqual(t, plain, cleared)

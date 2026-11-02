@@ -33,9 +33,9 @@ func TestPathOverrideSubscription(t *testing.T) {
 		{"clear", `{"path":""}`, "", ""},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			var override option.OverrideTransportOptions
+			var override option.OverrideDialerOptions
 			require.NoError(t, json.Unmarshal([]byte(tt.config), &override))
-			nodes, _, err := ParseSubscription(ctx, content, nil, nil, nil, &override, "provider")
+			nodes, _, err := ParseSubscription(ctx, content, &override, nil, nil, nil, "provider")
 			require.NoError(t, err)
 			require.Len(t, nodes, 4)
 			one := nodes[0].Options.(*option.HTTPOutboundOptions)

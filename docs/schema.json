@@ -20210,6 +20210,15 @@
     "OverrideDialerOptions": {
       "type": "object",
       "properties": {
+        "host": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "with_at": {
+          "type": "string"
+        },
         "detour": {
           "type": "string",
           "x-tag-reference": "outbound"
@@ -20561,15 +20570,6 @@
     "OverrideTransportOptions": {
       "type": "object",
       "properties": {
-        "host": {
-          "type": "string"
-        },
-        "path": {
-          "type": "string"
-        },
-        "with_at": {
-          "type": "string"
-        },
         "xhttp_download_enabled": {
           "type": "boolean"
         },

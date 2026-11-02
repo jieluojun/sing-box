@@ -72,7 +72,7 @@ func TestOverrideTransportOption(t *testing.T) {
 		},
 	}
 
-	res := overrideTransportOption(transport, overrideTLS, overrideTransport)
+	res := overrideTransportOption(transport, nil, overrideTLS, overrideTransport)
 	if res == nil || res.Extra == nil {
 		t.Fatalf("Extra must not be nil")
 	}
@@ -127,7 +127,7 @@ func TestOverrideOutbounds_FullChain(t *testing.T) {
 
 	outbounds := overrideOutbounds(
 		[]option.Outbound{vlessOut},
-		nil,
+		&option.OverrideDialerOptions{Host: common.Ptr("v.qq.com")},
 		nil,
 		nil,
 		overrideTransport,
@@ -141,6 +141,9 @@ func TestOverrideOutbounds_FullChain(t *testing.T) {
 
 	parsedVless := outbounds[0].Options.(*option.VLESSOutboundOptions)
 	xhttpOpts := parsedVless.Transport.Extra.(*option.V2RayXHTTPOptions)
+	if len(xhttpOpts.Host) != 1 || xhttpOpts.Host[0] != "v.qq.com" {
+		t.Errorf("expected main XHTTP Host overridden to v.qq.com, got %v", xhttpOpts.Host)
+	}
 	if xhttpOpts.DownloadSettings.Detour != "new-detour" {
 		t.Errorf("expected Detour overridden to 'new-detour', got '%s'", xhttpOpts.DownloadSettings.Detour)
 	}
