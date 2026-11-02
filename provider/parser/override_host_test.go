@@ -24,10 +24,10 @@ func TestOverrideHostTransports(t *testing.T) {
 		{Type: C.V2RayTransportTypeHTTPUpgrade, HTTPUpgradeOptions: option.V2RayHTTPUpgradeOptions{Host: "old.example", Headers: makeHeaders()}},
 		{Type: C.V2RayTransportTypeXHTTP, Extra: &option.V2RayXHTTPOptions{Host: []string{"old.example"}, Headers: makeHeaders(), DownloadSettings: &option.V2RayXHTTPDownloadOptions{V2RayXHTTPOptions: option.V2RayXHTTPOptions{Host: []string{"download.example"}}}}},
 	}
-	override := &option.OverrideTransportOptions{Host: common.Ptr("v.qq.com")}
+	override := &option.OverrideDialerOptions{Host: common.Ptr("v.qq.com")}
 	for _, transport := range transports {
 		t.Run(transport.Type, func(t *testing.T) {
-			result := overrideTransportOption(transport, nil, override)
+			result := overrideTransportOption(transport, override, nil, nil)
 			var headers badoption.HTTPHeader
 			switch result.Type {
 			case C.V2RayTransportTypeWebsocket:
@@ -49,9 +49,9 @@ func TestOverrideHostTransports(t *testing.T) {
 			require.Equal(t, []string{"kept"}, []string(headers["X-Test"]))
 		})
 	}
-	require.Nil(t, overrideTransportOption(nil, nil, override))
+	require.Nil(t, overrideTransportOption(nil, override, nil, nil))
 	grpc := &option.V2RayTransportOptions{Type: C.V2RayTransportTypeGRPC, GRPCOptions: option.V2RayGRPCOptions{ServiceName: "service"}}
-	require.Equal(t, "service", overrideTransportOption(grpc, nil, override).GRPCOptions.ServiceName)
+	require.Equal(t, "service", overrideTransportOption(grpc, override, nil, nil).GRPCOptions.ServiceName)
 }
 
 func TestOverrideHostOutboundsAndTLSIndependent(t *testing.T) {
@@ -61,7 +61,7 @@ func TestOverrideHostOutboundsAndTLSIndependent(t *testing.T) {
 		{Type: C.TypeVLESS, Options: &option.VLESSOutboundOptions{OutboundTLSOptionsContainer: option.OutboundTLSOptionsContainer{TLS: &option.OutboundTLSOptions{Enabled: true, ServerName: "sni.example"}}, Transport: &option.V2RayTransportOptions{Type: C.V2RayTransportTypeWebsocket}}},
 	}
 	detour := "direct"
-	got := overrideOutbounds(outbounds, &option.OverrideDialerOptions{Detour: &detour}, nil, nil, &option.OverrideTransportOptions{Host: common.Ptr("v.qq.com")}, nil, "")
+	got := overrideOutbounds(outbounds, &option.OverrideDialerOptions{Detour: &detour, Host: common.Ptr("v.qq.com")}, nil, nil, nil, nil, "")
 	cns := got[0].Options.(*option.CNSOutboundOptions)
 	require.Equal(t, "direct", cns.Detour)
 	require.Equal(t, "v.qq.com", cns.Headers.Build().Get("Host"))
@@ -78,7 +78,7 @@ func TestOverrideHostClashSubscription(t *testing.T) {
   - {name: ws, type: vless, server: example.com, port: 443, uuid: bf000d23-0752-40b4-affe-68f7707a9661, tls: true, servername: sni.example, network: ws, ws-opts: {headers: {Host: old.example}}}
   - {name: http, type: vmess, server: example.com, port: 443, uuid: bf000d23-0752-40b4-affe-68f7707a9661, cipher: auto, network: http, http-opts: {headers: {Host: [old.example]}}}
 `
-	outbounds, _, err := ParseSubscription(context.Background(), content, nil, nil, nil, &option.OverrideTransportOptions{Host: common.Ptr("v.qq.com")}, "test")
+	outbounds, _, err := ParseSubscription(context.Background(), content, &option.OverrideDialerOptions{Host: common.Ptr("v.qq.com")}, nil, nil, nil, "test")
 	require.NoError(t, err)
 	require.Len(t, outbounds, 2)
 	ws := outbounds[0].Options.(*option.VLESSOutboundOptions)
@@ -90,7 +90,7 @@ func TestOverrideHostClashSubscription(t *testing.T) {
 
 func TestOverrideHostNotSetPreservesValues(t *testing.T) {
 	transport := &option.V2RayTransportOptions{Type: C.V2RayTransportTypeWebsocket, WebsocketOptions: option.V2RayWebsocketOptions{Headers: badoption.HTTPHeader{"host": {"old"}}}}
-	overrideTransportOption(transport, nil, &option.OverrideTransportOptions{})
+	overrideTransportOption(transport, &option.OverrideDialerOptions{}, nil, nil)
 	require.Equal(t, []string{"old"}, []string(transport.WebsocketOptions.Headers["host"]))
 }
 
@@ -99,7 +99,7 @@ func TestOverrideHostBoxCNSSubscription(t *testing.T) {
 	cns.RegisterOutbound(registry)
 	ctx := service.ContextWith[option.OutboundOptionsRegistry](context.Background(), registry)
 	content := `{"outbounds":[{"type":"cns","tag":"node","server":"127.0.0.1","server_port":5002,"key":"Meng","headers":{"host":"old.example","X-Test":"kept"}}]}`
-	nodes, _, err := ParseSubscription(ctx, content, nil, nil, nil, &option.OverrideTransportOptions{Host: common.Ptr("v.qq.com")}, "provider")
+	nodes, _, err := ParseSubscription(ctx, content, &option.OverrideDialerOptions{Host: common.Ptr("v.qq.com")}, nil, nil, nil, "provider")
 	require.NoError(t, err)
 	require.Len(t, nodes, 1)
 	node := nodes[0].Options.(*option.CNSOutboundOptions)

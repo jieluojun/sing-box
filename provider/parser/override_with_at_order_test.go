@@ -19,10 +19,10 @@ func TestWithAtOverrideSavedFirstAndRoundTrips(t *testing.T) {
 	outbound.Register[option.HTTPOutboundOptions](registry, C.TypeHTTP, nil)
 	ctx := service.ContextWith[option.OutboundOptionsRegistry](context.Background(), registry)
 	content := `{"outbounds":[{"type":"http","tag":"node","server":"180.101.50.208","server_port":443,"headers":{"Host":"153.3.236.22:443","X-T5-Auth":"683556433","A-Header":["one","two"]}}]}`
-	for _, override := range []*option.OverrideTransportOptions{
+	for _, override := range []*option.OverrideDialerOptions{
 		{WithAt: common.Ptr("gw.alicdn.com")},
 	} {
-		nodes, _, err := ParseSubscription(ctx, content, nil, nil, nil, override, "provider")
+		nodes, _, err := ParseSubscription(ctx, content, override, nil, nil, nil, "provider")
 		require.NoError(t, err)
 		encoded, err := json.Marshal(option.Options{Outbounds: nodes})
 		require.NoError(t, err)

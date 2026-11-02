@@ -63,6 +63,10 @@ jobs:
         if: matrix.arch == 'amd64' && !matrix.ebpf
         run: go test -run 'TestPanelVersion|TestVersionEndpoint|TestLinkerFlags' ./constant ./experimental/clashapi ./cmd/internal/build_shared
 
+      - name: Test provider overrides
+        if: matrix.arch == 'amd64' && !matrix.ebpf
+        run: go test -race ./option ./provider/parser ./provider/remote ./provider/local ./transport/http
+
       - name: Upload core
         uses: actions/upload-artifact@v5
         with:

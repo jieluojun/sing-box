@@ -38,8 +38,8 @@ func TestHTTPOutboundHeaderSerialization(t *testing.T) {
 	}
 }
 
-func TestOverrideTransportWithAtKey(t *testing.T) {
-	var options OverrideTransportOptions
+func TestOverrideDialerWithAtKey(t *testing.T) {
+	var options OverrideDialerOptions
 	err := singjson.UnmarshalContextDisallowUnknownFields(context.Background(), []byte(`{"with_at":"gw.alicdn.com"}`), &options)
 	require.NoError(t, err)
 	require.Equal(t, "gw.alicdn.com", *options.WithAt)

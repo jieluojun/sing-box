@@ -32,9 +32,9 @@ func TestWithAtOverrideSubscription(t *testing.T) {
 		{"clear", `{"with_at":""}`, "", ""},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			var override option.OverrideTransportOptions
+			var override option.OverrideDialerOptions
 			require.NoError(t, json.Unmarshal([]byte(tt.config), &override))
-			nodes, _, err := ParseSubscription(ctx, content, nil, nil, nil, &override, "provider")
+			nodes, _, err := ParseSubscription(ctx, content, &override, nil, nil, nil, "provider")
 			require.NoError(t, err)
 			require.Len(t, nodes, 3)
 			one := nodes[0].Options.(*option.HTTPOutboundOptions)
@@ -67,7 +67,7 @@ func TestWithAtOverrideCanClearExistingPath(t *testing.T) {
 	path := ""
 	withAt := "new.example"
 	nodes := []option.Outbound{{Type: C.TypeHTTP, Options: &option.HTTPOutboundOptions{Path: original}}}
-	result := overrideOutbounds(nodes, nil, nil, nil, &option.OverrideTransportOptions{Path: &path, WithAt: &withAt}, nil, "")
+	result := overrideOutbounds(nodes, &option.OverrideDialerOptions{Path: &path, WithAt: &withAt}, nil, nil, nil, nil, "")
 	opts := result[0].Options.(*option.HTTPOutboundOptions)
 	require.Empty(t, opts.Path)
 	require.Equal(t, "new.example", opts.Headers.Build().Get("With-At"))

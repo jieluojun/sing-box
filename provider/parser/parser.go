@@ -53,23 +53,23 @@ func overrideOutbounds(outbounds []option.Outbound, overrideDialerOptions *optio
 			options := outbound.Options.(*option.HTTPOutboundOptions)
 			options.DialerOptions = overrideDialerOption(options.DialerOptions, overrideDialerOptions, tags, providerTag)
 			options.OutboundTLSOptionsContainer.TLS = overrideTLSOption(options.OutboundTLSOptionsContainer.TLS, overrideTLSOptions)
-			if overrideTransportOptions != nil {
-				if overrideTransportOptions.Host != nil {
-					options.Headers = overrideHostHeader(options.Headers, *overrideTransportOptions.Host)
+			if overrideDialerOptions != nil {
+				if overrideDialerOptions.Host != nil {
+					options.Headers = overrideHostHeader(options.Headers, *overrideDialerOptions.Host)
 				}
-				if overrideTransportOptions.Path != nil {
-					options.Path = *overrideTransportOptions.Path
+				if overrideDialerOptions.Path != nil {
+					options.Path = *overrideDialerOptions.Path
 				}
-				if overrideTransportOptions.WithAt != nil {
-					options.Headers = overrideWithAtHeader(options.Headers, *overrideTransportOptions.WithAt)
+				if overrideDialerOptions.WithAt != nil {
+					options.Headers = overrideWithAtHeader(options.Headers, *overrideDialerOptions.WithAt)
 				}
 			}
 			outbound.Options = options
 		case C.TypeCNS:
 			options := outbound.Options.(*option.CNSOutboundOptions)
 			options.DialerOptions = overrideDialerOption(options.DialerOptions, overrideDialerOptions, tags, providerTag)
-			if overrideTransportOptions != nil && overrideTransportOptions.Host != nil {
-				options.Headers = overrideHostHeader(options.Headers, *overrideTransportOptions.Host)
+			if overrideDialerOptions != nil && overrideDialerOptions.Host != nil {
+				options.Headers = overrideHostHeader(options.Headers, *overrideDialerOptions.Host)
 			}
 			outbound.Options = options
 		case C.TypeSOCKS:
@@ -85,19 +85,19 @@ func overrideOutbounds(outbounds []option.Outbound, overrideDialerOptions *optio
 			options := outbound.Options.(*option.VMessOutboundOptions)
 			options.DialerOptions = overrideDialerOption(options.DialerOptions, overrideDialerOptions, tags, providerTag)
 			options.OutboundTLSOptionsContainer.TLS = overrideTLSOption(options.OutboundTLSOptionsContainer.TLS, overrideTLSOptions)
-			options.Transport = overrideTransportOption(options.Transport, overrideTLSOptions, overrideTransportOptions)
+			options.Transport = overrideTransportOption(options.Transport, overrideDialerOptions, overrideTLSOptions, overrideTransportOptions)
 			outbound.Options = options
 		case C.TypeVLESS:
 			options := outbound.Options.(*option.VLESSOutboundOptions)
 			options.DialerOptions = overrideDialerOption(options.DialerOptions, overrideDialerOptions, tags, providerTag)
 			options.OutboundTLSOptionsContainer.TLS = overrideTLSOption(options.OutboundTLSOptionsContainer.TLS, overrideTLSOptions)
-			options.Transport = overrideTransportOption(options.Transport, overrideTLSOptions, overrideTransportOptions)
+			options.Transport = overrideTransportOption(options.Transport, overrideDialerOptions, overrideTLSOptions, overrideTransportOptions)
 			outbound.Options = options
 		case C.TypeTrojan:
 			options := outbound.Options.(*option.TrojanOutboundOptions)
 			options.DialerOptions = overrideDialerOption(options.DialerOptions, overrideDialerOptions, tags, providerTag)
 			options.OutboundTLSOptionsContainer.TLS = overrideTLSOption(options.OutboundTLSOptionsContainer.TLS, overrideTLSOptions)
-			options.Transport = overrideTransportOption(options.Transport, overrideTLSOptions, overrideTransportOptions)
+			options.Transport = overrideTransportOption(options.Transport, overrideDialerOptions, overrideTLSOptions, overrideTransportOptions)
 			outbound.Options = options
 		case C.TypeHysteria:
 			options := outbound.Options.(*option.HysteriaOutboundOptions)
@@ -381,12 +381,12 @@ func overrideWithAtHeader(headers badoption.HTTPHeader, value string) badoption.
 	return headers
 }
 
-func overrideTransportOption(options *option.V2RayTransportOptions, overrideTLSOptions *option.OverrideTLSOptions, overrideTransportOptions *option.OverrideTransportOptions) *option.V2RayTransportOptions {
+func overrideTransportOption(options *option.V2RayTransportOptions, overrideDialerOptions *option.OverrideDialerOptions, overrideTLSOptions *option.OverrideTLSOptions, overrideTransportOptions *option.OverrideTransportOptions) *option.V2RayTransportOptions {
 	if options == nil {
 		return nil
 	}
-	if overrideTransportOptions != nil && overrideTransportOptions.Host != nil {
-		host := *overrideTransportOptions.Host
+	if overrideDialerOptions != nil && overrideDialerOptions.Host != nil {
+		host := *overrideDialerOptions.Host
 		switch options.Type {
 		case C.V2RayTransportTypeWebsocket:
 			options.WebsocketOptions.Headers = overrideHostHeader(options.WebsocketOptions.Headers, host)
