@@ -237,7 +237,8 @@ jobs:
           echo "BUILD_TAGS=${TAGS}" >> "${GITHUB_ENV}"
       - name: Set shared ldflags
         run: |
-          echo "LDFLAGS_SHARED=$(cat release/LDFLAGS)" >> "${GITHUB_ENV}"
+          BUILD_TIME=${SOURCE_DATE_EPOCH:-$(date -u +%s)}
+          echo "LDFLAGS_SHARED=$(cat release/LDFLAGS) -X github.com/sagernet/sing-box/constant.BuildTime=${BUILD_TIME}" >> "${GITHUB_ENV}"
       - name: Build (purego)
         if: matrix.variant == 'purego'
         run: |
@@ -532,7 +533,8 @@ jobs:
           echo "BUILD_TAGS=${TAGS}" >> "${GITHUB_ENV}"
       - name: Set shared ldflags
         run: |
-          echo "LDFLAGS_SHARED=$(cat release/LDFLAGS)" >> "${GITHUB_ENV}"
+          BUILD_TIME=${SOURCE_DATE_EPOCH:-$(date -u +%s)}
+          echo "LDFLAGS_SHARED=$(cat release/LDFLAGS) -X github.com/sagernet/sing-box/constant.BuildTime=${BUILD_TIME}" >> "${GITHUB_ENV}"
       - name: Build
         run: |
           set -xeuo pipefail
@@ -609,7 +611,8 @@ jobs:
         if: matrix.naive
         run: |
           $TAGS = Get-Content release/DEFAULT_BUILD_TAGS_WINDOWS
-          $LDFLAGS_SHARED = Get-Content release/LDFLAGS
+          $buildTime = if ($env:SOURCE_DATE_EPOCH) { $env:SOURCE_DATE_EPOCH } else { [DateTimeOffset]::UtcNow.ToUnixTimeSeconds() }
+          $LDFLAGS_SHARED = "$(Get-Content release/LDFLAGS) -X github.com/sagernet/sing-box/constant.BuildTime=$buildTime"
           mkdir -p dist
           go build -v -trimpath -o dist/sing-box.exe -tags "$TAGS" `
           -ldflags "-X 'github.com/sagernet/sing-box/constant.Version=${{ needs.calculate_version.outputs.version }}' $LDFLAGS_SHARED -s -w -buildid=" `
@@ -623,7 +626,8 @@ jobs:
         if: ${{ !matrix.naive }}
         run: |
           $TAGS = Get-Content release/DEFAULT_BUILD_TAGS_OTHERS
-          $LDFLAGS_SHARED = Get-Content release/LDFLAGS
+          $buildTime = if ($env:SOURCE_DATE_EPOCH) { $env:SOURCE_DATE_EPOCH } else { [DateTimeOffset]::UtcNow.ToUnixTimeSeconds() }
+          $LDFLAGS_SHARED = "$(Get-Content release/LDFLAGS) -X github.com/sagernet/sing-box/constant.BuildTime=$buildTime"
           mkdir -p dist
           go build -v -trimpath -o dist/sing-box.exe -tags "$TAGS" `
           -ldflags "-X 'github.com/sagernet/sing-box/constant.Version=${{ needs.calculate_version.outputs.version }}' $LDFLAGS_SHARED -s -w -buildid=" `
