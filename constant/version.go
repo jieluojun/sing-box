@@ -10,6 +10,9 @@ var Version = "unknown"
 // Commit may be set via -ldflags when VCS build information is disabled.
 var Commit string
 
+// BuildTime is a Unix timestamp set via -ldflags at build time.
+var BuildTime string
+
 func init() {
 	Version = strings.TrimSuffix(Version, "-with-at")
 	if !strings.HasSuffix(Version, "-zero") {

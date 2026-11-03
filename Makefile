@@ -7,7 +7,8 @@ GOHOSTARCH = $(shell go env GOHOSTARCH)
 VERSION=$(shell CGO_ENABLED=0 GOOS=$(GOHOSTOS) GOARCH=$(GOHOSTARCH) go run github.com/sagernet/sing-box/cmd/internal/read_tag@latest)
 
 LDFLAGS_SHARED = $(shell cat release/LDFLAGS)
-PARAMS = -v -trimpath -ldflags "-X 'github.com/sagernet/sing-box/constant.Version=$(VERSION)' $(LDFLAGS_SHARED) -s -w -buildid="
+BUILD_TIME = $(if $(SOURCE_DATE_EPOCH),$(SOURCE_DATE_EPOCH),$(shell date -u +%s))
+PARAMS = -v -trimpath -ldflags "-X 'github.com/sagernet/sing-box/constant.Version=$(VERSION)' -X 'github.com/sagernet/sing-box/constant.BuildTime=$(BUILD_TIME)' $(LDFLAGS_SHARED) -s -w -buildid="
 MAIN_PARAMS = $(PARAMS) -tags "$(TAGS)"
 MAIN = ./cmd/sing-box
 PREFIX ?= $(shell go env GOPATH)

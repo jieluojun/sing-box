@@ -54,14 +54,25 @@ jobs:
           fi
           version="pr-${GITHUB_SHA:0:12}"
           commit=$(git rev-parse --verify HEAD^{commit})
+          build_time=${SOURCE_DATE_EPOCH:-$(date -u +%s)}
           mkdir -p dist
           go build -trimpath -buildvcs=false -tags "$tags" \
-            -ldflags "-s -w -buildid= $(cat release/LDFLAGS) -X github.com/sagernet/sing-box/constant.Version=${version} -X github.com/sagernet/sing-box/constant.Commit=${commit}" \
+            -ldflags "-s -w -buildid= $(cat release/LDFLAGS) -X github.com/sagernet/sing-box/constant.Version=${version} -X github.com/sagernet/sing-box/constant.Commit=${commit} -X github.com/sagernet/sing-box/constant.BuildTime=${build_time}" \
             -o "dist/sing-box-linux-${GOARCH}${suffix}" ./cmd/sing-box
 
       - name: Test panel version
         if: matrix.arch == 'amd64' && !matrix.ebpf
-        run: go test -run 'TestPanelVersion|TestVersionEndpoint|TestLinkerFlags' ./constant ./experimental/clashapi ./cmd/internal/build_shared
+        run: go test -run 'TestPanelVersion|TestVersionEndpoint|TestLinkerFlags|TestBuildTimestamp|TestVersionHeader' ./constant ./experimental/clashapi ./cmd/internal/build_shared ./cmd/sing-box
+
+      - name: Test version command output
+        if: matrix.arch == 'amd64' && !matrix.ebpf
+        run: |
+          set -euo pipefail
+          revision=$(git rev-parse --verify HEAD^{commit})
+          first_line=$(dist/sing-box-linux-amd64 version | head -n 1)
+          [[ "$first_line" == *"-${revision:0:9}-zero linux amd64 with go"* ]]
+          [[ "$first_line" =~ UTC[[:space:]][0-9]{4}$ ]]
+          [[ "$(dist/sing-box-linux-amd64 version --name)" == "pr-${GITHUB_SHA:0:12}-zero" ]]
 
       - name: Test provider overrides
         if: matrix.arch == 'amd64' && !matrix.ebpf

@@ -639,6 +639,8 @@ wazero 仅在 amd64 与 arm64 架构上以编译方式执行，其他架构使�
 
 Zashboard 等 Clash API 面板显示的内核版本包含源码提交的前 9 位，例如 `1.15.0-alpha.13-820679ca4-zero`；这不会改变内核及客户端使用的内部版本。自定义构建若禁用 Go 的 VCS 信息，可通过 linker flag `-X github.com/sagernet/sing-box/constant.Commit=<完整提交哈希>` 提供提交号；没有可用提交号时仍显示原版本。
 
+`sing-box version` 的首行也会显示 9 位源码哈希、目标系统和架构、Go 版本及 UTC 构建时间，例如 `sing-box version 1.15.0-alpha.13-820679ca4-zero android arm64 with go1.26.10 Sat Oct 24 13:05:41 UTC 2026`。构建时若设置 `SOURCE_DATE_EPOCH`，为保证可复现性会显示该基准时间，而不一定是实际构建时间；缺少构建时间时显示 `build time unknown`。`sing-box version --name` 仍只输出原内部版本，保持脚本兼容。自定义构建可通过 `-X github.com/sagernet/sing-box/constant.BuildTime=<Unix秒数>` 注入时间。
+
 **兼容性提示：**新 Release 标签不是 SemVer。现有 SFW 客户端的自动更新检查依赖 SemVer 标签，无法识别新格式，需手动下载更新；旧版 SFA 基于标签的版本排序也可能不准确。此工作流不会修改这些外部客户端的源码。
 
 | 系统 | 架构 |

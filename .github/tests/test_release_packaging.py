@@ -50,7 +50,7 @@ fi
         for tool in self.bin.iterdir():
             tool.chmod(0o755)
         self.env = dict(os.environ, PATH=f"{self.bin}:{os.environ['PATH']}", VERSION=VERSION,
-                        ARTIFACT_VERSION=ARTIFACT_VERSION, CGO_ENABLED="0", GOOS="linux",
+                        ARTIFACT_VERSION=ARTIFACT_VERSION, SOURCE_DATE_EPOCH="1792847141", CGO_ENABLED="0", GOOS="linux",
                         GOARCH="arm64", GOAMD64="", CC_TARGET="", TAGS_SRC="others",
                         EBPF="true", SUFFIX="", EXT="", FEATURE="easytier", FEATURE_TAG="with_easytier")
 
@@ -76,6 +76,7 @@ fi
         self.assert_archive(f"sing-box-{ARTIFACT_VERSION}-linux_arm64-easytier")
         self.assertIn(f"constant.Version={VERSION}", (self.dir / "go-log").read_text())
         self.assertIn("constant.Commit=149ad84c81234567890123456789012345678901", (self.dir / "go-log").read_text())
+        self.assertIn("constant.BuildTime=1792847141", (self.dir / "go-log").read_text())
 
     def test_android_normal_and_experimental_archive_names(self):
         ndk = self.dir / "ndk" / "toolchains/llvm/prebuilt/linux-x86_64/bin"

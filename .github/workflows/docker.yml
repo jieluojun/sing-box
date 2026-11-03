@@ -113,7 +113,8 @@ jobs:
           echo "BUILD_TAGS=${TAGS}" >> "${GITHUB_ENV}"
       - name: Set shared ldflags
         run: |
-          echo "LDFLAGS_SHARED=$(cat release/LDFLAGS)" >> "${GITHUB_ENV}"
+          BUILD_TIME=${SOURCE_DATE_EPOCH:-$(date -u +%s)}
+          echo "LDFLAGS_SHARED=$(cat release/LDFLAGS) -X github.com/sagernet/sing-box/constant.BuildTime=${BUILD_TIME}" >> "${GITHUB_ENV}"
       - name: Build (naive)
         if: matrix.naive
         run: |
