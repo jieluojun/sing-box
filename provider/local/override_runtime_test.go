@@ -23,6 +23,7 @@ import (
 	"github.com/sagernet/sing-box/option"
 	httpout "github.com/sagernet/sing-box/protocol/http"
 	"github.com/sagernet/sing-box/protocol/vmess"
+	"github.com/sagernet/sing-box/provider/parser"
 	"github.com/sagernet/sing/common/json"
 	M "github.com/sagernet/sing/common/metadata"
 	"github.com/sagernet/sing/service"
@@ -147,7 +148,12 @@ func TestLocalOverrideVMessHTTPHostOnWire(t *testing.T) {
 	}
 	onDisk, err := os.ReadFile(path)
 	require.NoError(t, err)
-	require.Equal(t, nodes, string(onDisk), "overrides must not rewrite the user's source file")
+	saved, _, err := parser.ParseBoxSubscription(ctx, string(onDisk))
+	require.NoError(t, err)
+	require.Len(t, saved, 3)
+	for _, node := range saved {
+		require.Equal(t, []string{"m.youku.com"}, []string(node.Options.(*option.VMessOutboundOptions).Transport.HTTPOptions.Host))
+	}
 }
 
 func TestLocalHTTPConnectOverridesOnWire(t *testing.T) {
@@ -161,7 +167,17 @@ func TestLocalHTTPConnectOverridesOnWire(t *testing.T) {
 			defer listener.Close()
 			port := listener.Addr().(*net.TCPAddr).Port
 			nodes := fmt.Sprintf(`{"outbounds":[{"type":"http","tag":"node","server":"127.0.0.1","server_port":%d}]}`, port)
-			_, ctx, manager, _ := localOverrideProvider(t, nodes, tt.override)
+			_, ctx, manager, path := localOverrideProvider(t, nodes, tt.override)
+			onDisk, err := os.ReadFile(path)
+			require.NoError(t, err)
+			saved, _, err := parser.ParseBoxSubscription(ctx, string(onDisk))
+			require.NoError(t, err)
+			savedOptions := saved[0].Options.(*option.HTTPOutboundOptions)
+			if tt.name == "path" {
+				require.Equal(t, "@path.example", savedOptions.Path)
+			} else {
+				require.Equal(t, "at.example", savedOptions.Headers.Build().Get("With-At"))
+			}
 			options := manager.option("免流节点/node").(*option.HTTPOutboundOptions)
 			ob, err := httpout.NewOutbound(ctx, nil, log.NewNOPFactory().NewLogger("test"), "node", *options)
 			require.NoError(t, err)

@@ -239,15 +239,22 @@ func (s *ProviderLocal) reloadFile(path string) error {
 	if closeErr != nil {
 		return closeErr
 	}
-	s.lastUpdated = fileInfo.ModTime()
 	outboundOpts, endpointOpts, err := parser.ParseSubscription(parser.ContextWithWarnHandler(s.ctx, s.logger.Warn), string(content), s.overrideDialer, s.overrideTLS, s.overrideAnyTLS, s.overrideTransport, s.Tag())
 	if err != nil {
 		return err
+	}
+	if err = s.writeOverrides(path, content, fileInfo, outboundOpts, endpointOpts); err != nil {
+		return E.Cause(err, "save local provider overrides")
 	}
 	s.UpdateOutbounds(s.lastOutOpts, outboundOpts)
 	s.lastOutOpts = outboundOpts
 	s.UpdateEndpoints(s.lastEPOpts, endpointOpts)
 	s.lastEPOpts = endpointOpts
+	// Writeback can atomically replace the original file with a newer one.
+	if updatedInfo, statErr := os.Stat(path); statErr == nil {
+		fileInfo = updatedInfo
+	}
+	s.lastUpdated = fileInfo.ModTime()
 	return nil
 }
 

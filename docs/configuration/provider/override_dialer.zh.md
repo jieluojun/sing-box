@@ -38,7 +38,7 @@
 
 `detour` `bind_interface` `inet4_bind_address` `inet6_bind_address` `routing_mark` `reuse_addr` `connect_timeout` `tcp_fast_open` `tcp_multi_path` `udp_gso` `udp_fragment` `domain_resolver` `network_strategy` `network_type` `fallback_network_type` `fallback_delay` `tcp_keep_alive` `tcp_keep_alive_interval` `tcp_keep_alive_count` `disable_tcp_keep_alive` `domain_strategy` 详情参阅 [拨号字段](/zh/configuration/shared/dial)。
 
-本地订阅的覆写只作用于加载后的节点配置，不会改写原始订阅文件。
+本地订阅使用 sing-box 标准 JSON 格式时，有实际变化的覆写会写回原文件，其他节点和字段会保留，但 JSON 排版可能改变。原始值会被替换，移除覆写不会自动恢复，请事先备份。其他格式（包括带注释或重复键的 JSON、Clash 和分享链接）仅在内存中覆写，不会改写源文件，并会输出警告。
 
 #### host
 

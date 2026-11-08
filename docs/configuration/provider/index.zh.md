@@ -159,6 +159,8 @@
 
 ### 本地或远程字段
 
+本地 provider 的覆写会写回标准 sing-box JSON 订阅文件；原值无法自动恢复，请先备份。非标准 JSON（含注释或重复键）、Clash 和分享链接仅在内存中覆写，不改写源文件。
+
 #### override_anytls
 
 覆写订阅内容的 AnyTLS 字段，参阅 [AnyTLS 字段覆写](/zh/configuration/provider/override_anytls/)。

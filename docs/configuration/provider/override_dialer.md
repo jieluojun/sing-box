@@ -38,7 +38,7 @@
 
 `detour` `bind_interface` `inet4_bind_address` `inet6_bind_address` `routing_mark` `reuse_addr` `connect_timeout` `tcp_fast_open` `tcp_multi_path` `udp_gso` `udp_fragment` `domain_resolver` `network_strategy` `network_type` `fallback_network_type` `fallback_delay` `tcp_keep_alive` `tcp_keep_alive_interval` `tcp_keep_alive_count` `disable_tcp_keep_alive` `domain_strategy` see [Dial Fields](/configuration/shared/dial).
 
-Local provider overrides apply to the loaded node options and do not rewrite the source subscription file.
+For local subscriptions in standard sing-box JSON, effective overrides are written back to the source file. Other nodes and fields are preserved, but JSON formatting may change. Original values are replaced and are not restored when overrides are removed; back up the source first. Other formats (including commented JSON, JSON with duplicate keys, Clash, and share links) are overridden in memory only, without rewriting the source, and a warning is logged.
 
 #### host
 

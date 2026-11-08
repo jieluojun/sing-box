@@ -159,6 +159,8 @@ The probe needs a DNS server reachable from every node; pick one the nodes do no
 
 ### Local or Remote Fields
 
+Local provider overrides are written back to standard sing-box JSON subscription files. Original values cannot be restored automatically; back up the file first. Nonstandard JSON (including comments or duplicate keys), Clash, and share links are overridden in memory only and are not rewritten.
+
 #### override_anytls
 
 Override AnyTLS fields of outbounds in provider, see [AnyTLS Fields Override](/configuration/provider/override_anytls/) for details.
