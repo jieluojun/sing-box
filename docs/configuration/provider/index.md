@@ -159,7 +159,7 @@ The probe needs a DNS server reachable from every node; pick one the nodes do no
 
 ### Local or Remote Fields
 
-Local provider overrides are written back to standard sing-box JSON subscription files. Original values cannot be restored automatically; back up the file first. Nonstandard JSON (including comments or duplicate keys), Clash, and share links are overridden in memory only and are not rewritten.
+Local provider overrides are written back to standard sing-box JSON subscription files. For Clash YAML, the `override_dialer` fields `host`, `path`, and `with_at` are written back. Original values cannot be restored automatically; back up the file first. YAML containing anchors, aliases, merge keys, or multiple documents is overridden in memory only and is not rewritten. Other overrides on Clash YAML also apply in memory only.
 
 #### override_anytls
 

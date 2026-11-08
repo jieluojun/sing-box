@@ -19,9 +19,8 @@ import (
 	"github.com/sagernet/sing/service/filemanager"
 )
 
-// writeOverrides persists changes to a sing-box JSON source without discarding
-// unrelated fields or nodes that the subscription parser deliberately skips.
-// Other formats are kept intact rather than silently converted or truncated.
+// writeOverrides persists supported changes without discarding unrelated
+// fields or nodes that the subscription parser deliberately skips.
 func (s *ProviderLocal) writeOverrides(path string, source []byte, info os.FileInfo, outbounds []option.Outbound, endpoints []option.Endpoint) error {
 	if s.overrideDialer == nil && s.overrideTLS == nil && s.overrideAnyTLS == nil && s.overrideTransport == nil {
 		return nil
@@ -33,11 +32,17 @@ func (s *ProviderLocal) writeOverrides(path string, source []byte, info os.FileI
 	if reflect.DeepEqual(originalOutbounds, outbounds) && reflect.DeepEqual(originalEndpoints, endpoints) {
 		return nil
 	}
+	if !json.Valid(source) {
+		handled, writeErr := s.writeClashOverrides(path, source, info, outbounds, endpoints)
+		if handled || writeErr != nil {
+			return writeErr
+		}
+	}
 	document, err := parseOrderedJSONObject(source)
 	_, hasOutbounds := document.get("outbounds")
 	_, hasEndpoints := document.get("endpoints")
 	if err != nil || !json.Valid(source) || (!hasOutbounds && !hasEndpoints) || !uniqueJSONKeys(source) {
-		s.logger.Warn("local provider overrides are applied in memory only: writing back requires a sing-box JSON subscription without duplicate keys")
+		s.logger.Warn("local provider overrides are applied in memory only: writing back requires a sing-box JSON subscription without duplicate keys or a supported Clash YAML subscription")
 		return nil
 	}
 	changedOutbounds, err := mergeSubscriptionNodes(s.ctx, &document, "outbounds", originalOutbounds, outbounds)

@@ -38,7 +38,7 @@
 
 `detour` `bind_interface` `inet4_bind_address` `inet6_bind_address` `routing_mark` `reuse_addr` `connect_timeout` `tcp_fast_open` `tcp_multi_path` `udp_gso` `udp_fragment` `domain_resolver` `network_strategy` `network_type` `fallback_network_type` `fallback_delay` `tcp_keep_alive` `tcp_keep_alive_interval` `tcp_keep_alive_count` `disable_tcp_keep_alive` `domain_strategy` see [Dial Fields](/configuration/shared/dial).
 
-For local subscriptions in standard sing-box JSON, effective overrides are written back to the source file, preserving the relative order of existing nodes and fields; new fields are appended. When HTTP outbound headers are modified, `With-At` is still placed before other headers. JSON indentation may change. Original values are replaced and are not restored when overrides are removed; back up the source first. Other formats (including commented JSON, JSON with duplicate keys, Clash, and share links) are overridden in memory only, without rewriting the source, and a warning is logged.
+For local subscriptions in standard sing-box JSON, effective overrides are written back to the source file. For Clash YAML, `host`, `path`, and `with_at` are also written back. Existing nodes and fields retain their relative order; new fields are appended, and `With-At` is placed before other HTTP outbound headers when those headers are modified. Indentation and formatting may change. Original values are replaced and are not restored when overrides are removed; back up the source first. YAML with anchors, aliases, merge keys, or multiple documents, commented or duplicate-key JSON, Clash JSON, and share links are overridden in memory only, without rewriting the source, and a warning is logged. Other override fields on Clash YAML also apply in memory only.
 
 #### host
 
@@ -50,7 +50,7 @@ This does not change TLS SNI. To override it separately, set `"override_tls": {"
 
 #### path
 
-Override `path` on HTTP outbounds in local or remote subscriptions. This is a suffix appended to the HTTP/1 CONNECT request target: for example, `"@gw.alicdn.com"` produces `CONNECT destination:port@gw.alicdn.com HTTP/1.1`. It does not change other protocols' transport paths, the Host header, or `del_host`.
+Override `path` on HTTP outbounds in local or remote subscriptions. This is a suffix appended to the HTTP/1 CONNECT request target: for example, `"@gw.alicdn.com"` produces `CONNECT destination:port@gw.alicdn.com HTTP/1.1`. It does not change other protocols' transport paths, the Host header, or `del_host`. For `type: http` nodes in Clash YAML, the written `path` is this core’s HTTP CONNECT extension and may not be supported by other Clash-compatible cores.
 
 When omitted, the subscription value is preserved; an empty string clears it. After clearing it, any `With-At` or `Baidu-Direct` special headers on the node still take effect. A nonempty suffix requires HTTP/1 and is incompatible with an explicitly configured HTTP/2 or HTTP/3 version. The suffix must not contain spaces or control characters.
 

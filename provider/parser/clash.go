@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/pem"
 	"net/netip"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -529,6 +530,7 @@ type HttpOption struct {
 	*TLSOptions   `yaml:",inline"`
 	UserName      string            `yaml:"username,omitempty"`
 	Password      string            `yaml:"password,omitempty"`
+	Path          string            `yaml:"path,omitempty"`
 	Headers       map[string]string `yaml:"headers,omitempty"`
 }
 
@@ -539,6 +541,7 @@ func (h *HttpOption) Build() any {
 		Username:                    h.UserName,
 		Password:                    h.Password,
 		OutboundTLSOptionsContainer: clashTLSOptions(h.Server, h.TLSOptions),
+		Path:                        h.Path,
 		Headers:                     clashHeaders(h.Headers),
 		// Clash HTTP proxies never relay UDP; CONNECT-UDP is a sing-box extension.
 		Network: N.NetworkTCP,
@@ -552,6 +555,8 @@ type TrojanOption struct {
 	Password      string       `yaml:"password"`
 	UDP           bool         `yaml:"udp,omitempty"`
 	Network       string       `yaml:"network,omitempty"`
+	HTTPOpts      HTTPOptions  `yaml:"http-opts,omitempty"`
+	HTTP2Opts     HTTP2Options `yaml:"h2-opts,omitempty"`
 	GrpcOpts      GrpcOptions  `yaml:"grpc-opts,omitempty"`
 	WSOpts        WSOptions    `yaml:"ws-opts,omitempty"`
 	XHTTPOpts     XHTTPOptions `yaml:"xhttp-opts,omitempty"`
@@ -591,7 +596,7 @@ func (t *TrojanOption) Build() any {
 		Network:                     clashNetworks(t.UDP),
 		OutboundTLSOptionsContainer: clashTLSOptions(t.Server, &t.TLSOptions),
 		Multiplex:                   t.MuxOpts.Build(),
-		Transport:                   clashTransport(t.Network, HTTPOptions{}, HTTP2Options{}, t.GrpcOpts, t.WSOpts, xhttp),
+		Transport:                   clashTransport(t.Network, t.HTTPOpts, t.HTTP2Opts, t.GrpcOpts, t.WSOpts, xhttp),
 	}
 }
 
@@ -1519,12 +1524,29 @@ func clashTransport(network string, httpOpts HTTPOptions, h2Opts HTTP2Options, g
 	case "xhttp":
 		return xhttp.build()
 	case "http":
+		// Host must become request.Host, particularly for HTTP/2 where a
+		// Host entry in Header does not set the :authority pseudo-header.
+		headers := make(badoption.HTTPHeader, len(httpOpts.Headers))
+		var hostKeys []string
+		for key, values := range httpOpts.Headers {
+			if strings.EqualFold(key, "Host") {
+				hostKeys = append(hostKeys, key)
+			} else {
+				headers[key] = values
+			}
+		}
+		sort.Strings(hostKeys)
+		var hosts badoption.Listable[string]
+		for _, key := range hostKeys {
+			hosts = append(hosts, httpOpts.Headers[key]...)
+		}
 		return &option.V2RayTransportOptions{
 			Type: C.V2RayTransportTypeHTTP,
 			HTTPOptions: option.V2RayHTTPOptions{
 				Method:  httpOpts.Method,
 				Path:    clashStringList(httpOpts.Path),
-				Headers: httpOpts.Headers,
+				Host:    hosts,
+				Headers: headers,
 			},
 		}
 	case "h2":
@@ -1547,8 +1569,9 @@ func clashTransport(network string, httpOpts HTTPOptions, h2Opts HTTP2Options, g
 		headers := clashHeaders(wsOpts.Headers)
 		if wsOpts.V2rayHttpUpgrade {
 			var host string
-			if headers != nil && headers["Host"] != nil {
-				host = headers["Host"][0]
+			if headers != nil {
+				host = badoption.HTTPHeader(headers).Build().Get("Host")
+				removeHostHeader(headers)
 			}
 			return &option.V2RayTransportOptions{
 				Type: C.V2RayTransportTypeHTTPUpgrade,

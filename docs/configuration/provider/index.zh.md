@@ -159,7 +159,7 @@
 
 ### 本地或远程字段
 
-本地 provider 的覆写会写回标准 sing-box JSON 订阅文件；原值无法自动恢复，请先备份。非标准 JSON（含注释或重复键）、Clash 和分享链接仅在内存中覆写，不改写源文件。
+本地 provider 的覆写会写回标准 sing-box JSON 订阅文件；Clash YAML 支持将 `override_dialer` 的 `host`、`path`、`with_at` 写回。原值无法自动恢复，请先备份。带锚点、别名、合并键或多个文档的 YAML 仅在内存中覆写，不改写源文件；其他覆写字段也仅在 Clash YAML 中作用于内存。
 
 #### override_anytls
 
