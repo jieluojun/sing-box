@@ -159,6 +159,8 @@ The probe needs a DNS server reachable from every node; pick one the nodes do no
 
 ### Local or Remote Fields
 
+Local provider overrides are written back to standard sing-box JSON subscription files. For Clash YAML, the `override_dialer` fields `host`, `path`, and `with_at` are written back. Original values cannot be restored automatically; back up the file first. YAML containing anchors, aliases, merge keys, or multiple documents is overridden in memory only and is not rewritten. Other overrides on Clash YAML also apply in memory only.
+
 #### override_anytls
 
 Override AnyTLS fields of outbounds in provider, see [AnyTLS Fields Override](/configuration/provider/override_anytls/) for details.
@@ -200,7 +202,7 @@ Options without a counterpart are ignored and the node keeps the sing-box defaul
 
     Will be automatically reloaded if file modified since sing-box 1.10.0.
 
-Local file path. If the file is missing at startup, the provider starts empty and logs a warning; it is loaded automatically when the file or its parent directory is created later. The file and directories are not created automatically. Existing files that cannot be read or parsed still cause an error.
+Local file path. When the file is missing at startup, sing-box attempts to create its parent directories and an empty file, and starts with an empty provider. Empty or whitespace-only files also start successfully. Nodes are loaded automatically when the file is populated, and the provider is cleared if the file is emptied. If a missing file or directory cannot be created, a warning is logged and the provider still starts empty. Existing files that cannot be read or have invalid nonempty content still cause an error.
 
 ### Inline Fields
 

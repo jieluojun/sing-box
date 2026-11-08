@@ -1,6 +1,7 @@
 package provider
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"io"
@@ -132,9 +133,22 @@ func (s *ProviderLocal) StartContext(ctx context.Context, startContext *adapter.
 			return err
 		}
 		if missing {
-			s.logger.Warn("local provider file not found, starting empty: ", s.path)
+			if createErr := s.createMissingFile(); createErr != nil {
+				// A missing source should not prevent startup, even when its
+				// directory is read-only. Keep watching for a later file.
+				s.logger.Warn(E.Cause(createErr, "create empty local provider file; starting empty"))
+			} else {
+				// Another writer may have won the creation race; never truncate
+				// the file, and load whichever contents are present now.
+				err = s.reloadFile(s.path)
+				if err != nil {
+					if !errors.Is(err, fs.ErrNotExist) {
+						return err
+					}
+					s.logger.Warn(E.Cause(err, "local provider file unavailable; starting empty"))
+				}
+			}
 		}
-		s.UpdateGroups()
 		if s.watcher != nil {
 			if err = s.startWatcher(); err != nil {
 				if errors.Is(err, fs.ErrNotExist) {
@@ -142,13 +156,37 @@ func (s *ProviderLocal) StartContext(ctx context.Context, startContext *adapter.
 				} else {
 					s.logger.Error(E.Cause(err, "watch provider file"))
 				}
-			} else if missing {
-				// Close the gap between the first read and installing the watcher.
-				s.reloadWatchedFile()
+			} else {
+				// Close the gap between the first read and installing the watcher,
+				// including when an existing empty file was populated meanwhile.
+				if err = s.reloadFile(s.path); err != nil && !errors.Is(err, fs.ErrNotExist) {
+					s.logger.Error(E.Cause(err, "reload provider ", s.Tag()))
+				}
 			}
 		}
+		s.UpdateGroups()
 	}
 	return s.Adapter.Start()
+}
+
+// createMissingFile creates parent directories and an empty file without ever
+// truncating a file created concurrently by another process.
+func (s *ProviderLocal) createMissingFile() error {
+	if err := filemanager.MkdirAll(s.ctx, filepath.Dir(s.path), 0o755); err != nil {
+		return err
+	}
+	file, err := filemanager.OpenFile(s.ctx, s.path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o666)
+	if errors.Is(err, fs.ErrExist) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if err = file.Close(); err != nil {
+		return err
+	}
+	s.logger.Info("created empty local provider file: ", s.path)
+	return nil
 }
 
 // startWatcher checks the directory first so a missing parent does not create
@@ -239,15 +277,33 @@ func (s *ProviderLocal) reloadFile(path string) error {
 	if closeErr != nil {
 		return closeErr
 	}
-	s.lastUpdated = fileInfo.ModTime()
+	if len(bytes.TrimSpace(bytes.TrimPrefix(content, []byte("\xef\xbb\xbf")))) == 0 {
+		// Empty files represent an empty provider, including after a reload.
+		// Remove endpoints first so UpdateOutbounds does not discard their
+		// references before the endpoint manager can remove them.
+		s.UpdateEndpoints(s.lastEPOpts, nil)
+		s.UpdateOutbounds(s.lastOutOpts, nil)
+		s.lastOutOpts = nil
+		s.lastEPOpts = nil
+		s.lastUpdated = fileInfo.ModTime()
+		return nil
+	}
 	outboundOpts, endpointOpts, err := parser.ParseSubscription(parser.ContextWithWarnHandler(s.ctx, s.logger.Warn), string(content), s.overrideDialer, s.overrideTLS, s.overrideAnyTLS, s.overrideTransport, s.Tag())
 	if err != nil {
 		return err
+	}
+	if err = s.writeOverrides(path, content, fileInfo, outboundOpts, endpointOpts); err != nil {
+		return E.Cause(err, "save local provider overrides")
 	}
 	s.UpdateOutbounds(s.lastOutOpts, outboundOpts)
 	s.lastOutOpts = outboundOpts
 	s.UpdateEndpoints(s.lastEPOpts, endpointOpts)
 	s.lastEPOpts = endpointOpts
+	// Writeback can atomically replace the original file with a newer one.
+	if updatedInfo, statErr := os.Stat(path); statErr == nil {
+		fileInfo = updatedInfo
+	}
+	s.lastUpdated = fileInfo.ModTime()
 	return nil
 }
 
