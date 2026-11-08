@@ -191,6 +191,14 @@ func TestLocalWritebackTLSAndEndpointOverrides(t *testing.T) {
 	written, err := os.ReadFile(path)
 	require.NoError(t, err)
 	require.Contains(t, string(written), `"server_name": "new.example"`)
+	var document struct {
+		Outbounds []json.RawMessage `json:"outbounds"`
+		Endpoints []json.RawMessage `json:"endpoints"`
+	}
+	require.NoError(t, json.Unmarshal(written, &document))
+	require.Equal(t, []string{"outbounds", "endpoints"}, jsonObjectKeys(t, written))
+	require.Equal(t, []string{"type", "tag", "server", "server_port", "uuid", "security", "tls", "bind_interface"}, jsonObjectKeys(t, document.Outbounds[0]))
+	require.Equal(t, []string{"type", "tag", "address", "private_key", "bind_interface"}, jsonObjectKeys(t, document.Endpoints[0]))
 	parsed, ep, err := parser.ParseBoxSubscription(ctx, string(written))
 	require.NoError(t, err)
 	require.Equal(t, "example0", parsed[0].Options.(*option.VMessOutboundOptions).BindInterface)
@@ -218,4 +226,107 @@ func TestLocalWritebackFailureKeepsOriginal(t *testing.T) {
 	entries, err := os.ReadDir(base)
 	require.NoError(t, err)
 	require.Len(t, entries, 1, "temporary file must be removed after failure")
+}
+
+func jsonObjectKeys(t *testing.T, data json.RawMessage) []string {
+	t.Helper()
+	fields, err := parseOrderedJSONObject(data)
+	require.NoError(t, err)
+	keys := make([]string, 0, len(fields))
+	for _, field := range fields {
+		keys = append(keys, field.key)
+	}
+	return keys
+}
+
+func TestLocalWritebackPreservesJSONFieldOrder(t *testing.T) {
+	const source = `{
+		"z_meta":{"right":1,"left":2},
+		"outbounds":[
+			{"type":"vmess","tag":"山东","server":"one.example","server_port":80,"uuid":"bf000d23-0752-40b4-affe-68f7707a9661","security":"auto","alter_id":0,"network":"tcp","transport":{"type":"http","host":["v.qq.com"],"path":"/","method":"GET"}},
+			{"type":"vmess","tag":"广东","server":"192.0.2.10","server_port":8080,"uuid":"bf000d23-0752-40b4-affe-68f7707a9661","security":"auto","alter_id":0,"transport":{"type":"http","host":["v.qq.com","other.example"],"path":"/","method":"GET"}},
+			{"type":"vmess","tag":"青海","server":"three.example","server_port":18552,"uuid":"bf000d23-0752-40b4-affe-68f7707a9661","security":"auto","alter_id":0,"transport":{"type":"http","host":"tms.dingtalk.com","path":"/","method":"GET"}}
+		],
+		"a_meta":[{"z":1,"a":2}]
+	}`
+	instance, ctx, _, path := localOverrideProvider(t, source, `{"host":"m.youku.com"}`)
+	written, err := os.ReadFile(path)
+	require.NoError(t, err)
+	require.Equal(t, []string{"z_meta", "outbounds", "a_meta"}, jsonObjectKeys(t, written))
+	var document struct {
+		Outbounds []json.RawMessage `json:"outbounds"`
+	}
+	require.NoError(t, json.Unmarshal(written, &document))
+	require.Len(t, document.Outbounds, 3)
+	for i, raw := range document.Outbounds {
+		keys := []string{"type", "tag", "server", "server_port", "uuid", "security", "alter_id"}
+		if i == 0 {
+			keys = append(keys, "network")
+		}
+		keys = append(keys, "transport")
+		require.Equal(t, keys, jsonObjectKeys(t, raw))
+		var node struct {
+			Transport json.RawMessage `json:"transport"`
+		}
+		require.NoError(t, json.Unmarshal(raw, &node))
+		require.Equal(t, []string{"type", "host", "path", "method"}, jsonObjectKeys(t, node.Transport))
+		var transport map[string]json.RawMessage
+		require.NoError(t, json.Unmarshal(node.Transport, &transport))
+		if i < 2 {
+			require.JSONEq(t, `["m.youku.com"]`, string(transport["host"]))
+		} else {
+			require.JSONEq(t, `"m.youku.com"`, string(transport["host"]))
+		}
+	}
+	nodes, _, err := parser.ParseBoxSubscription(ctx, string(written))
+	require.NoError(t, err)
+	require.Len(t, nodes, 3)
+	initial, err := os.Stat(path)
+	require.NoError(t, err)
+	require.NoError(t, instance.Update())
+	after, err := os.Stat(path)
+	require.NoError(t, err)
+	require.True(t, os.SameFile(initial, after), "unchanged overrides must not rewrite the file")
+}
+
+func TestLocalWritebackPreservesHeaderOrder(t *testing.T) {
+	const source = `{"outbounds":[{"type":"http","tag":"node","server":"example.com","server_port":80,"headers":{"Z-Header":"z","Host":"old.example","With-At":"existing.example","A-Header":"a"}}]}`
+	for _, tt := range []struct {
+		name, override string
+		headers        []string
+	}{
+		{"host only", `{"host":"new.example"}`, []string{"With-At", "Z-Header", "Host", "A-Header"}},
+		{"with at", `{"host":"new.example","with_at":"new-at.example"}`, []string{"With-At", "Z-Header", "Host", "A-Header"}},
+		{"clear with at", `{"with_at":""}`, []string{"Z-Header", "Host", "A-Header"}},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			_, _, _, path := localOverrideProvider(t, source, tt.override)
+			written, err := os.ReadFile(path)
+			require.NoError(t, err)
+			var document struct {
+				Outbounds []struct {
+					Headers json.RawMessage `json:"headers"`
+				} `json:"outbounds"`
+			}
+			require.NoError(t, json.Unmarshal(written, &document))
+			require.Equal(t, tt.headers, jsonObjectKeys(t, document.Outbounds[0].Headers))
+		})
+	}
+}
+
+func TestLocalWritebackAppendsNewFieldsInEncoderOrder(t *testing.T) {
+	const source = `{"outbounds":[{"type":"http","tag":"node","server":"example.com","server_port":80,"headers":{"Z-Header":"z","A-Header":"a"}}]}`
+	_, _, _, path := localOverrideProvider(t, source, `{"host":"new.example","with_at":"new-at.example","path":"@path.example"}`)
+	written, err := os.ReadFile(path)
+	require.NoError(t, err)
+	var document struct {
+		Outbounds []json.RawMessage `json:"outbounds"`
+	}
+	require.NoError(t, json.Unmarshal(written, &document))
+	require.Equal(t, []string{"type", "tag", "server", "server_port", "headers", "path"}, jsonObjectKeys(t, document.Outbounds[0]))
+	var node struct {
+		Headers json.RawMessage `json:"headers"`
+	}
+	require.NoError(t, json.Unmarshal(document.Outbounds[0], &node))
+	require.Equal(t, []string{"With-At", "Z-Header", "A-Header", "Host"}, jsonObjectKeys(t, node.Headers))
 }

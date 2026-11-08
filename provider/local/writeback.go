@@ -9,7 +9,6 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
-	"sort"
 	"strings"
 
 	C "github.com/sagernet/sing-box/constant"
@@ -34,23 +33,25 @@ func (s *ProviderLocal) writeOverrides(path string, source []byte, info os.FileI
 	if reflect.DeepEqual(originalOutbounds, outbounds) && reflect.DeepEqual(originalEndpoints, endpoints) {
 		return nil
 	}
-	var document map[string]json.RawMessage
-	if err := json.Unmarshal(source, &document); err != nil || document == nil || (document["outbounds"] == nil && document["endpoints"] == nil) || !uniqueJSONKeys(source) {
+	document, err := parseOrderedJSONObject(source)
+	_, hasOutbounds := document.get("outbounds")
+	_, hasEndpoints := document.get("endpoints")
+	if err != nil || !json.Valid(source) || (!hasOutbounds && !hasEndpoints) || !uniqueJSONKeys(source) {
 		s.logger.Warn("local provider overrides are applied in memory only: writing back requires a sing-box JSON subscription without duplicate keys")
 		return nil
 	}
-	changedOutbounds, err := mergeSubscriptionNodes(s.ctx, document, "outbounds", originalOutbounds, outbounds)
+	changedOutbounds, err := mergeSubscriptionNodes(s.ctx, &document, "outbounds", originalOutbounds, outbounds)
 	if err != nil {
 		return err
 	}
-	changedEndpoints, err := mergeSubscriptionNodes(s.ctx, document, "endpoints", originalEndpoints, endpoints)
+	changedEndpoints, err := mergeSubscriptionNodes(s.ctx, &document, "endpoints", originalEndpoints, endpoints)
 	if err != nil {
 		return err
 	}
 	if !changedOutbounds && !changedEndpoints {
 		return nil
 	}
-	updated, err := marshalRawObject(document)
+	updated, err := document.marshal()
 	if err != nil {
 		return err
 	}
@@ -108,7 +109,7 @@ func uniqueJSONKeys(source []byte) bool {
 	return visit() == nil
 }
 
-func mergeSubscriptionNodes[T any](ctx context.Context, document map[string]json.RawMessage, field string, before, after []T) (bool, error) {
+func mergeSubscriptionNodes[T any](ctx context.Context, document *orderedJSONObject, field string, before, after []T) (bool, error) {
 	if len(before) != len(after) {
 		return false, fmt.Errorf("local provider %s changed node count", field)
 	}
@@ -116,7 +117,8 @@ func mergeSubscriptionNodes[T any](ctx context.Context, document map[string]json
 		return false, nil
 	}
 	var nodes []json.RawMessage
-	if err := json.Unmarshal(document[field], &nodes); err != nil {
+	rawNodes, _ := document.get(field)
+	if err := json.Unmarshal(rawNodes, &nodes); err != nil {
 		return false, E.Cause(err, "read local provider ", field)
 	}
 	index := 0
@@ -145,7 +147,7 @@ func mergeSubscriptionNodes[T any](ctx context.Context, document map[string]json
 		if err != nil {
 			return false, err
 		}
-		merged, nodeChanged, err := mergeOverrideJSON(raw, oldJSON, newJSON)
+		merged, nodeChanged, err := mergeOverrideJSON(raw, oldJSON, newJSON, false)
 		if err != nil {
 			return false, E.Cause(err, "merge local provider ", field, "[", i, "]")
 		}
@@ -163,62 +165,170 @@ func mergeSubscriptionNodes[T any](ctx context.Context, document map[string]json
 		if err != nil {
 			return false, err
 		}
-		document[field] = encoded
+		document.set(field, encoded)
 	}
 	return changed, nil
 }
 
+// orderedJSONObject keeps the source order and raw values, including large
+// numbers, without making assumptions about a node's known schema.
+type orderedJSONField struct {
+	key   string
+	value json.RawMessage
+}
+type orderedJSONObject []orderedJSONField
+
+func parseOrderedJSONObject(data []byte) (orderedJSONObject, error) {
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	token, err := decoder.Token()
+	if err != nil {
+		return nil, err
+	}
+	if token != json.Delim('{') {
+		return nil, fmt.Errorf("expected JSON object")
+	}
+	var fields orderedJSONObject
+	for decoder.More() {
+		token, err = decoder.Token()
+		if err != nil {
+			return nil, err
+		}
+		key, ok := token.(string)
+		if !ok {
+			return nil, fmt.Errorf("expected JSON object key")
+		}
+		var value json.RawMessage
+		if err = decoder.Decode(&value); err != nil {
+			return nil, err
+		}
+		fields = append(fields, orderedJSONField{key: key, value: value})
+	}
+	_, err = decoder.Token()
+	return fields, err
+}
+
+func (o orderedJSONObject) get(key string) (json.RawMessage, bool) {
+	for _, field := range o {
+		if field.key == key {
+			return field.value, true
+		}
+	}
+	return nil, false
+}
+func (o *orderedJSONObject) set(key string, value json.RawMessage) {
+	for i := range *o {
+		if (*o)[i].key == key {
+			(*o)[i].value = value
+			return
+		}
+	}
+	*o = append(*o, orderedJSONField{key: key, value: value})
+}
+func (o orderedJSONObject) marshal() ([]byte, error) {
+	var result bytes.Buffer
+	result.WriteByte('{')
+	for i, field := range o {
+		if i > 0 {
+			result.WriteByte(',')
+		}
+		key, err := json.Marshal(field.key)
+		if err != nil {
+			return nil, err
+		}
+		result.Write(key)
+		result.WriteByte(':')
+		result.Write(field.value)
+	}
+	result.WriteByte('}')
+	return result.Bytes(), nil
+}
+
 // Only apply differences made by the override, not parser normalization, to
-// the original JSON. This also leaves unrecognized fields intact.
-func mergeOverrideJSON(source, before, after json.RawMessage) (json.RawMessage, bool, error) {
+// the original JSON. Existing fields retain their relative order; new fields
+// are appended in the order supplied by the encoder.
+func mergeOverrideJSON(source, before, after json.RawMessage, isHeaders bool) (json.RawMessage, bool, error) {
 	if bytes.Equal(before, after) || equivalentJSON(source, after) {
 		return source, false, nil
 	}
-	var original, old, updated map[string]json.RawMessage
-	if json.Unmarshal(source, &original) != nil || original == nil || json.Unmarshal(before, &old) != nil || old == nil || json.Unmarshal(after, &updated) != nil || updated == nil {
+	original, sourceErr := parseOrderedJSONObject(source)
+	var old, updated map[string]json.RawMessage
+	afterFields, afterErr := parseOrderedJSONObject(after)
+	if sourceErr != nil || afterErr != nil || json.Unmarshal(before, &old) != nil || old == nil || json.Unmarshal(after, &updated) != nil || updated == nil {
 		return after, true, nil
 	}
 	changed := false
-	for key, oldValue := range old {
-		newValue, exists := updated[key]
-		if !exists {
-			if _, present := original[key]; present {
-				delete(original, key)
+	mergedFields := make(orderedJSONObject, 0, len(original))
+	for _, field := range original {
+		oldValue, existedBefore := old[field.key]
+		newValue, existsAfter := updated[field.key]
+		if existedBefore && !existsAfter {
+			changed = true
+			continue
+		}
+		if existsAfter && ((!existedBefore && !equivalentJSON(field.value, newValue)) || (existedBefore && !bytes.Equal(oldValue, newValue))) {
+			// Preserve the original list representation of Host when the
+			// encoder uses a scalar for a single list element.
+			if strings.EqualFold(field.key, "host") {
+				newValue = preserveStringListShape(field.value, newValue)
+			}
+			if !existedBefore {
+				oldValue = field.value
+			}
+			value, valueChanged, err := mergeOverrideJSON(field.value, oldValue, newValue, field.key == "headers")
+			if err != nil {
+				return nil, false, err
+			}
+			if valueChanged {
+				field.value = value
 				changed = true
 			}
-			continue
 		}
-		if bytes.Equal(oldValue, newValue) {
-			continue
-		}
-		originalValue, exists := original[key]
-		if !exists {
-			original[key] = newValue
-			changed = true
-			continue
-		}
-		merged, valueChanged, err := mergeOverrideJSON(originalValue, oldValue, newValue)
-		if err != nil {
-			return nil, false, err
-		}
-		if valueChanged {
-			original[key] = merged
-			changed = true
-		}
+		mergedFields = append(mergedFields, field)
 	}
-	for key, value := range updated {
-		if _, exists := old[key]; !exists {
-			if existing, present := original[key]; !present || !equivalentJSON(existing, value) {
-				original[key] = value
-				changed = true
-			}
+	for _, field := range afterFields {
+		if _, exists := original.get(field.key); exists {
+			continue
+		}
+		oldValue, existedBefore := old[field.key]
+		if !existedBefore || !bytes.Equal(oldValue, field.value) {
+			mergedFields = append(mergedFields, field)
+			changed = true
 		}
 	}
 	if !changed {
 		return source, false, nil
 	}
-	result, err := marshalRawObject(original)
+	if isHeaders {
+		// With-At is a special local CONNECT option, which is deliberately
+		// written before other headers while retaining their relative order.
+		ordered := make(orderedJSONObject, 0, len(mergedFields))
+		for _, field := range mergedFields {
+			if strings.EqualFold(field.key, "With-At") {
+				ordered = append(ordered, field)
+			}
+		}
+		for _, field := range mergedFields {
+			if !strings.EqualFold(field.key, "With-At") {
+				ordered = append(ordered, field)
+			}
+		}
+		mergedFields = ordered
+	}
+	result, err := mergedFields.marshal()
 	return result, true, err
+}
+
+func preserveStringListShape(source, value json.RawMessage) json.RawMessage {
+	var original []string
+	var replacement string
+	if json.Unmarshal(source, &original) != nil || original == nil || json.Unmarshal(value, &replacement) != nil {
+		return value
+	}
+	encoded, err := json.Marshal([]string{replacement})
+	if err != nil {
+		return value
+	}
+	return encoded
 }
 
 // Compare decoded values without converting large numbers to float64.
@@ -239,36 +349,6 @@ func equivalentJSON(a, b []byte) bool {
 	}
 	right, err := decode(b)
 	return err == nil && reflect.DeepEqual(left, right)
-}
-
-func marshalRawObject(object map[string]json.RawMessage) ([]byte, error) {
-	keys := make([]string, 0, len(object))
-	for key := range object {
-		keys = append(keys, key)
-	}
-	sort.Slice(keys, func(i, j int) bool {
-		iAt, jAt := strings.EqualFold(keys[i], "With-At"), strings.EqualFold(keys[j], "With-At")
-		if iAt != jAt {
-			return iAt
-		}
-		return keys[i] < keys[j]
-	})
-	var result bytes.Buffer
-	result.WriteByte('{')
-	for i, key := range keys {
-		if i > 0 {
-			result.WriteByte(',')
-		}
-		encodedKey, err := json.Marshal(key)
-		if err != nil {
-			return nil, err
-		}
-		result.Write(encodedKey)
-		result.WriteByte(':')
-		result.Write(object[key])
-	}
-	result.WriteByte('}')
-	return result.Bytes(), nil
 }
 
 // Write to a sibling temporary file before replacing the source, and refuse to
