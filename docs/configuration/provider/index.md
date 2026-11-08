@@ -202,7 +202,7 @@ Options without a counterpart are ignored and the node keeps the sing-box defaul
 
     Will be automatically reloaded if file modified since sing-box 1.10.0.
 
-Local file path. If the file is missing at startup, the provider starts empty and logs a warning; it is loaded automatically when the file or its parent directory is created later. The file and directories are not created automatically. Existing files that cannot be read or parsed still cause an error.
+Local file path. When the file is missing at startup, sing-box attempts to create its parent directories and an empty file, and starts with an empty provider. Empty or whitespace-only files also start successfully. Nodes are loaded automatically when the file is populated, and the provider is cleared if the file is emptied. If a missing file or directory cannot be created, a warning is logged and the provider still starts empty. Existing files that cannot be read or have invalid nonempty content still cause an error.
 
 ### Inline Fields
 
