@@ -38,6 +38,8 @@
 
 `detour` `bind_interface` `inet4_bind_address` `inet6_bind_address` `routing_mark` `reuse_addr` `connect_timeout` `tcp_fast_open` `tcp_multi_path` `udp_gso` `udp_fragment` `domain_resolver` `network_strategy` `network_type` `fallback_network_type` `fallback_delay` `tcp_keep_alive` `tcp_keep_alive_interval` `tcp_keep_alive_count` `disable_tcp_keep_alive` `domain_strategy` 详情参阅 [拨号字段](/zh/configuration/shared/dial)。
 
+本地订阅的覆写只作用于加载后的节点配置，不会改写原始订阅文件。
+
 #### host
 
 统一覆写订阅节点的 Host，适用于 VMess、VLESS、Trojan 的 WebSocket、HTTP（包括 H2）、HTTPUpgrade 和 XHTTP 传输，以及 CNS 和 HTTP 出站。保留其他请求头，忽略不支持 Host 的节点；即使节点原本未设置 Host，也会写入新值。XHTTP 独立下行 `download_settings` 的 Host 不受影响。

@@ -38,6 +38,8 @@
 
 `detour` `bind_interface` `inet4_bind_address` `inet6_bind_address` `routing_mark` `reuse_addr` `connect_timeout` `tcp_fast_open` `tcp_multi_path` `udp_gso` `udp_fragment` `domain_resolver` `network_strategy` `network_type` `fallback_network_type` `fallback_delay` `tcp_keep_alive` `tcp_keep_alive_interval` `tcp_keep_alive_count` `disable_tcp_keep_alive` `domain_strategy` see [Dial Fields](/configuration/shared/dial).
 
+Local provider overrides apply to the loaded node options and do not rewrite the source subscription file.
+
 #### host
 
 Override the Host of subscription nodes using VMess, VLESS, or Trojan with WebSocket, HTTP (including H2), HTTPUpgrade, or XHTTP transport, and CNS and HTTP outbounds. Other headers are preserved; nodes without a supported Host field are unchanged. A Host is set even if the node did not previously specify one. The Host of a separate XHTTP `download_settings` connection is not changed.
